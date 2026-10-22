@@ -1,6 +1,17 @@
-# Dashboard YouTube con ESP32
+# Contador YouTube con ESP32
 
 Pequeño dispositivo que muestra los datos públicos de un canal de YouTube.
+
+![Pantalla táctil del contador](docs/preview-cyd.png)
+
+## Descarga
+
+**[Descargar la última versión](https://github.com/adriancubasalvarez/contador-youtube/releases/latest)**:
+el zip lleva el instalador de Windows (sin Arduino IDE), el
+[manual en PDF](docs/manual-contador-youtube.pdf), los firmwares y las huellas
+SHA-256 para comprobar que los archivos son los originales. Necesitas tu propia
+clave gratuita de la API de YouTube (paso 1 del manual).
+
 Un mismo proyecto da tres versiones:
 
 | Versión | Hardware | Coste | Uso |
