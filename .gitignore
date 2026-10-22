@@ -1,0 +1,8 @@
+.pio/
+ContadorYouTube/secrets.h
+docs/capturas_raw/
+dist/
+__pycache__/
+*.pyc
+build/
+*.spec

@@ -1,0 +1,1 @@
+-DWM_STRINGS_FILE=\"wm_strings_es.h\"

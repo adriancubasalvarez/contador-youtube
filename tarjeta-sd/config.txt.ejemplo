@@ -1,0 +1,14 @@
+# Contador YouTube: configuración sin móvil
+#
+# 1. Copia este archivo a la raíz de la tarjeta microSD con el nombre config.txt
+# 2. Rellena los datos (sin comillas) y enciende el contador con la tarjeta puesta.
+#    Al leerlo, lo renombra a config_aplicada.txt y tapa la contraseña.
+# Las líneas que empiezan por # no cuentan. Lo que dejes vacío no se cambia.
+
+wifi=NombreDeTuWiFi
+contrasena=ContraseñaDeTuWiFi
+canal=@tucanal
+
+# Tu clave de la API de YouTube (obligatoria si no la pusiste con el instalador
+# o en la página de configuración; cómo conseguirla: paso 1 del manual):
+clave_api=
