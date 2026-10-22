@@ -34,6 +34,7 @@ struct Settings {
     String channelInput;   // lo que escribió el usuario: @canal, URL o ID
     String apiKey;         // vacío => se usa YT_API_KEY
     uint16_t refreshMin = DEFAULT_REFRESH_MIN;
+    uint8_t lang = 0;              // 0 español, 1 inglés (lang.h); settingsLoad lo aplica a g_lang
 
     // Pantalla (se cambian desde la página de ajustes en la red local)
     uint8_t brightness = 70;   // %, 5-100
@@ -67,3 +68,6 @@ struct Settings {
 void settingsLoad(Settings &s);
 void settingsSave(const Settings &s);
 void settingsClear();
+
+// "es", "en", "español", "english"... -> LANG_ES / LANG_EN; -1 si no se reconoce
+int langParse(String text);

@@ -8,6 +8,7 @@
 #include <WiFi.h>
 #include "alerts.h"
 #include "format.h"
+#include "lang.h"
 #include "sdcard.h"
 #include "screen.h"
 #include "updater.h"
@@ -26,13 +27,18 @@ static String host;
 static const uint8_t PAGE_SECONDS_OPTIONS[] = {0, 3, 4, 5, 6, 8, 10, 15, 20, 30, 60};
 static const char *const LED_MODES[] = {"Apagada", "Fija", "Respirando", "Arcoíris lento",
                                         "Según el canal (verde si hoy suben las vistas)"};
+static const char *const LED_MODES_EN[] = {"Off", "Steady", "Breathing", "Slow rainbow",
+                                           "Follows the channel (green if views are up today)"};
 static const char *const LED_SPEEDS[] = {"Lenta", "Normal", "Rápida"};
+static const char *const LED_SPEEDS_EN[] = {"Slow", "Normal", "Fast"};
 // Colores predefinidos: nombre y 0xRRGGBB
 static const struct {
-    const char *name;
+    const char *name, *nameEn;
     uint32_t rgb;
-} LED_PRESETS[] = {{"Rojo YouTube", 0xFF0033}, {"Blanco cálido", 0xFFB060}, {"Azul", 0x2060FF}, {"Verde", 0x20FF50},
-                   {"Morado", 0x9030FF}, {"Naranja", 0xFF6000}, {"Rosa", 0xFF3090}, {"Cian", 0x00D0FF}};
+} LED_PRESETS[] = {{"Rojo YouTube", "YouTube red", 0xFF0033}, {"Blanco cálido", "Warm white", 0xFFB060},
+                   {"Azul", "Blue", 0x2060FF},          {"Verde", "Green", 0x20FF50},
+                   {"Morado", "Purple", 0x9030FF},      {"Naranja", "Orange", 0xFF6000},
+                   {"Rosa", "Pink", 0xFF3090},          {"Cian", "Cyan", 0x00D0FF}};
 
 static String hexColor(uint32_t c)
 {
@@ -83,103 +89,136 @@ static String page(const String &notice)
 {
     String h;
     h.reserve(5000);
-    h += F("<!doctype html><html lang='es'><head><meta charset='utf-8'>"
-           "<meta name='viewport' content='width=device-width,initial-scale=1'><title>Contador YouTube</title>");
+    h += TR("<!doctype html><html lang='es'><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'><title>Contador YouTube</title>",
+            "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'><title>YouTube Counter</title>");
     h += STYLE;
-    h += F("</head><body><main><h1><b>&#9654;</b> Contador YouTube &middot; Ajustes</h1>");
+    h += TR("</head><body><main><h1><b>&#9654;</b> Contador YouTube &middot; Ajustes</h1>",
+            "</head><body><main><h1><b>&#9654;</b> YouTube Counter &middot; Settings</h1>");
     if (notice.length()) h += "<div class='ok'>" + notice + "</div>";
 
     h += F("<div class='card'>");
     if (data && data->title.length()) {
         h += "<div class='muted'>" + esc(data->title) + "</div>";
-        h += "<div class='stat'>" + fmtInt(data->subscribers) + "</div><div class='muted'>suscriptores</div>";
+        h += "<div class='stat'>" + fmtInt(data->subscribers) + "</div><div class='muted'>" + TR("suscriptores", "subscribers") +
+             "</div>";
     } else {
-        h += F("<div class='muted'>Todavía no hay datos del canal.</div>");
+        h += TR("<div class='muted'>Todavía no hay datos del canal.</div>", "<div class='muted'>No channel data yet.</div>");
     }
     h += F("</div><form method='post' action='/guardar'><div class='card'>");
 
-    h += F("<label for='b'>Brillo: <span id='bv'>");
+    h += TR("<label for='lg'>Idioma · Language</label>", "<label for='lg'>Language · Idioma</label>");
+    h += F("<select id='lg' name='idioma'>");
+    h += String("<option value='es'") + (cfg->lang == LANG_ES ? " selected" : "") + ">Español</option>";
+    h += String("<option value='en'") + (cfg->lang == LANG_EN ? " selected" : "") + ">English</option></select>";
+
+    h += TR("<label for='b'>Brillo: <span id='bv'>", "<label for='b'>Brightness: <span id='bv'>");
     h += String(cfg->brightness);
     h += F("</span> %</label><input type='range' id='b' name='brillo' min='5' max='100' step='5' value='");
     h += String(cfg->brightness);
     h += F("' oninput=\"bv.textContent=this.value;fetch('/probar?brillo='+this.value)\">");
 
-    h += F("<label for='p'>Cambiar de vista cada</label><select id='p' name='vista'>");
+    h += TR("<label for='p'>Cambiar de vista cada</label><select id='p' name='vista'>",
+            "<label for='p'>Switch view every</label><select id='p' name='vista'>");
     for (uint8_t v : PAGE_SECONDS_OPTIONS) {
         h += "<option value='" + String(v) + "'" + (v == cfg->pageSeconds ? " selected" : "") + ">";
-        h += v ? String(v) + " segundos" : String("No cambiar (solo con el botón BOOT)");
+        h += v ? String(v) + TR(" segundos", " seconds") : String(TR("No cambiar (solo con el botón BOOT)", "Never (only with the BOOT button)"));
         h += "</option>";
     }
     h += F("</select>");
 
     h += F("<label class='check'><input type='checkbox' name='noche' value='1'");
     if (cfg->nightDim) h += F(" checked");
-    h += alertsAvailable() ? F("> De noche (0:00 a 7:00), brillo mínimo y sin avisos</label></div>")
-                           : F("> Bajar el brillo de noche (0:00 a 7:00)</label></div>");
+    h += alertsAvailable() ? TR("> De noche (0:00 a 7:00), brillo mínimo y sin avisos</label></div>",
+                                "> At night (0:00 to 7:00), lowest brightness and no alerts</label></div>")
+                           : TR("> Bajar el brillo de noche (0:00 a 7:00)</label></div>",
+                                "> Dim at night (0:00 to 7:00)</label></div>");
 
     if (alertsAvailable()) {
-        h += F("<div class='card'><label for='v'>Volumen de los avisos: <span id='vv'>");
-        h += cfg->volume ? String(cfg->volume) + " %" : String("sin sonido");
+        h += TR("<div class='card'><label for='v'>Volumen de los avisos: <span id='vv'>",
+                "<div class='card'><label for='v'>Alert volume: <span id='vv'>");
+        h += cfg->volume ? String(cfg->volume) + " %" : String(TR("sin sonido", "muted"));
         h += F("</span></label><input type='range' id='v' name='volumen' min='0' max='100' step='10' value='");
         h += String(cfg->volume);
-        h += F("' oninput=\"vv.textContent=this.value>0?this.value+' %':'sin sonido'\" "
-               "onchange=\"fetch('/probar?volumen='+this.value)\">"
+        h += TR("' oninput=\"vv.textContent=this.value>0?this.value+' %':'sin sonido'\" ",
+                "' oninput=\"vv.textContent=this.value>0?this.value+' %':'muted'\" ");
+        h += F("onchange=\"fetch('/probar?volumen='+this.value)\">"
                "<label class='check'><input type='checkbox' name='led' value='1'");
         if (cfg->led) h += F(" checked");
-        h += F("> Destellos del LED en los avisos</label>"
-               "<label class='check'><input type='checkbox' name='bateria' value='1'");
+        h += TR("> Destellos del LED en los avisos</label>", "> LED flashes on alerts</label>");
+        h += F("<label class='check'><input type='checkbox' name='bateria' value='1'");
         if (cfg->battery) h += F(" checked");
-        h += F("> Tengo una batería conectada (enseña su nivel)</label>"
-               "<div class='muted'>Avisa de comentarios nuevos en tu último vídeo, de nuevos suscriptores, "
-               "de vídeos nuevos y de los hitos (1.000, 10.000, 100.000…).</div>"
-               "<label>Probar un aviso (con los datos de tu canal)</label><div class='tests'>"
-               "<button type='button' onclick=\"fetch('/probar?aviso=3')\">Hito</button>"
-               "<button type='button' onclick=\"fetch('/probar?aviso=1')\">Suscriptor</button>"
-               "<button type='button' onclick=\"fetch('/probar?aviso=0')\">Comentario</button>"
-               "<button type='button' onclick=\"fetch('/probar?aviso=2')\">Vídeo</button></div></div>");
+        h += TR("> Tengo una batería conectada (enseña su nivel)</label>"
+                "<div class='muted'>Avisa de comentarios nuevos en tu último vídeo, de nuevos suscriptores, "
+                "de vídeos nuevos y de los hitos (1.000, 10.000, 100.000…).</div>"
+                "<label>Probar un aviso (con los datos de tu canal)</label><div class='tests'>"
+                "<button type='button' onclick=\"fetch('/probar?aviso=3')\">Hito</button>"
+                "<button type='button' onclick=\"fetch('/probar?aviso=1')\">Suscriptor</button>"
+                "<button type='button' onclick=\"fetch('/probar?aviso=0')\">Comentario</button>"
+                "<button type='button' onclick=\"fetch('/probar?aviso=2')\">Vídeo</button></div></div>",
+                "> I have a battery connected (shows its level)</label>"
+                "<div class='muted'>Alerts you about new comments on your latest video, new subscribers, "
+                "new videos and milestones (1,000, 10,000, 100,000…).</div>"
+                "<label>Try an alert (with your channel data)</label><div class='tests'>"
+                "<button type='button' onclick=\"fetch('/probar?aviso=3')\">Milestone</button>"
+                "<button type='button' onclick=\"fetch('/probar?aviso=1')\">Subscriber</button>"
+                "<button type='button' onclick=\"fetch('/probar?aviso=0')\">Comment</button>"
+                "<button type='button' onclick=\"fetch('/probar?aviso=2')\">Video</button></div></div>");
     }
     if (alertsAvailable()) {
         // Luz de ambiente: cada cambio se ve al momento en el LED (se guarda con «Guardar»)
-        h += F("<div class='card'><label for='lm'>Luz de ambiente (LED)</label><select id='lm' name='luz' onchange='lp()'>");
+        h += TR("<div class='card'><label for='lm'>Luz de ambiente (LED)</label>",
+                "<div class='card'><label for='lm'>Ambient light (LED)</label>");
+        h += F("<select id='lm' name='luz' onchange='lp()'>");
         for (int i = 0; i < 5; i++) {
-            h += "<option value='" + String(i) + "'" + (i == cfg->ledMode ? " selected" : "") + ">" + LED_MODES[i] +
-                 "</option>";
+            h += "<option value='" + String(i) + "'" + (i == cfg->ledMode ? " selected" : "") + ">" +
+                 TR(LED_MODES[i], LED_MODES_EN[i]) + "</option>";
         }
         h += F("</select><label for='lc'>Color</label><div class='sw'>");
         for (auto &p : LED_PRESETS) {
             String hc = hexColor(p.rgb);
-            h += "<button type='button' title='" + String(p.name) + "' style='background:" + hc +
+            h += "<button type='button' title='" + String(TR(p.name, p.nameEn)) + "' style='background:" + hc +
                  "' onclick=\"lc.value='" + hc + "';lp()\"></button>";
         }
         h += F("<input type='color' id='lc' name='color' oninput='lp()' value='");
         h += hexColor(cfg->ledColor);
-        h += F("'></div><label for='ll'>Intensidad: <span id='lv'>");
+        h += TR("'></div><label for='ll'>Intensidad: <span id='lv'>", "'></div><label for='ll'>Intensity: <span id='lv'>");
         h += String(cfg->ledLevel);
         h += F("</span> %</label><input type='range' id='ll' name='nivel' min='5' max='100' step='5' value='");
         h += String(cfg->ledLevel);
-        h += F("' oninput='lv.textContent=this.value;lp()'><label for='ls'>Velocidad</label><select id='ls' name='vel' "
-               "onchange='lp()'>");
+        h += TR("' oninput='lv.textContent=this.value;lp()'><label for='ls'>Velocidad</label>",
+                "' oninput='lv.textContent=this.value;lp()'><label for='ls'>Speed</label>");
+        h += F("<select id='ls' name='vel' onchange='lp()'>");
         for (int i = 0; i < 3; i++) {
-            h += "<option value='" + String(i) + "'" + (i == cfg->ledSpeed ? " selected" : "") + ">" + LED_SPEEDS[i] +
-                 "</option>";
+            h += "<option value='" + String(i) + "'" + (i == cfg->ledSpeed ? " selected" : "") + ">" +
+                 TR(LED_SPEEDS[i], LED_SPEEDS_EN[i]) + "</option>";
         }
         h += F("</select><label class='check'><input type='checkbox' name='parpadeo' value='1'");
         if (cfg->ledOfflineBlink) h += F(" checked");
-        h += F("> Parpadeo ámbar si se queda sin conexión</label>"
-               "<div class='muted'>Los avisos (comentarios, suscriptores, hitos) se ven encima y luego vuelve esta luz. "
-               "Con comentarios sin ver, hace un doble pulso azul.</div>"
-               "<details><summary class='muted'>Ajustar los colores del LED (balance de blancos)</summary>"
-               "<div class='muted'>Mientras mueves las barras, el LED se pone blanco: déjalo lo más blanco posible, "
-               "sin tinte azul ni rosa. Así los demás colores salen como en la pantalla.</div>");
+        h += TR("> Parpadeo ámbar si se queda sin conexión</label>"
+                "<div class='muted'>Los avisos (comentarios, suscriptores, hitos) se ven encima y luego vuelve esta luz. "
+                "Con comentarios sin ver, hace un doble pulso azul.</div>"
+                "<details><summary class='muted'>Ajustar los colores del LED (balance de blancos)</summary>"
+                "<div class='muted'>Mientras mueves las barras, el LED se pone blanco: déjalo lo más blanco posible, "
+                "sin tinte azul ni rosa. Así los demás colores salen como en la pantalla.</div>",
+                "> Amber blink when the connection is lost</label>"
+                "<div class='muted'>Alerts (comments, subscribers, milestones) show on top and then this light comes back. "
+                "With unread comments, it does a double blue pulse.</div>"
+                "<details><summary class='muted'>Adjust the LED colors (white balance)</summary>"
+                "<div class='muted'>While you move the sliders the LED turns white: make it as white as possible, "
+                "with no blue or pink tint. Then the other colors look like on the screen.</div>");
         static const char *const NAMES[] = {"Rojo", "Verde", "Azul"};
+        static const char *const NAMES_EN[] = {"Red", "Green", "Blue"};
         for (int i = 0; i < 3; i++) {
             String id = "b" + String(i);
-            h += "<label for='" + id + "'>" + NAMES[i] + ": <span id='" + id + "v'>" + String(cfg->ledBalance[i]) +
+            h += "<label for='" + id + "'>" + TR(NAMES[i], NAMES_EN[i]) + ": <span id='" + id + "v'>" + String(cfg->ledBalance[i]) +
                  "</span></label><input type='range' id='" + id + "' name='bal" + String(i) +
                  "' min='0' max='255' step='5' value='" + String(cfg->ledBalance[i]) + "' oninput='bp()'>";
         }
-        h += F("<button type='button' onclick=\"b0.value=192;b1.value=255;b2.value=82;bp()\">Valores de fábrica</button>"
-               "</details></div>"
+        h += TR("<button type='button' onclick=\"b0.value=192;b1.value=255;b2.value=82;bp()\">Valores de fábrica</button>",
+                "<button type='button' onclick=\"b0.value=192;b1.value=255;b2.value=82;bp()\">Factory values</button>");
+        h += F("</details></div>"
                "<script>function lp(){fetch('/probar?luz='+lm.value+'&color='+lc.value.substring(1)+'&nivel='+ll.value+"
                "'&vel='+ls.value)}"
                "function bp(){b0v.textContent=b0.value;b1v.textContent=b1.value;b2v.textContent=b2.value;"
@@ -187,36 +226,49 @@ static String page(const String &notice)
                "</script>");
     }
     if (sdAvailable()) {
-        h += F("<div class='card'><label>Tarjeta microSD</label><div class='muted'>");
+        h += TR("<div class='card'><label>Tarjeta microSD</label><div class='muted'>",
+                "<div class='card'><label>microSD card</label><div class='muted'>");
         h += esc(sdDescribe());
         h += F("</div>");
         if (sdHasHistory())
-            h += F("<p><a href='/historial.csv' download>Descargar el historial (CSV para Excel)</a></p>");
-        h += F("<div class='muted'>Sonidos propios: archivos WAV en la carpeta <b>sonidos</b> llamados "
-               "hito.wav, suscriptor.wav, comentario.wav o video.wav. Para configurarlo sin móvil: "
-               "un archivo <b>config.txt</b> (ver el manual).</div></div>");
+            h += TR("<p><a href='/historial.csv' download>Descargar el historial (CSV para Excel)</a></p>",
+                    "<p><a href='/historial.csv' download>Download the history (CSV for Excel)</a></p>");
+        h += TR("<div class='muted'>Sonidos propios: archivos WAV en la carpeta <b>sonidos</b> llamados "
+                "hito.wav, suscriptor.wav, comentario.wav o video.wav. Para configurarlo sin móvil: "
+                "un archivo <b>config.txt</b> (ver el manual).</div></div>",
+                "<div class='muted'>Your own sounds: WAV files in the <b>sonidos</b> folder named "
+                "hito.wav (milestone), suscriptor.wav (subscriber), comentario.wav (comment) or video.wav. "
+                "To set it up without a phone: a <b>config.txt</b> file (see the manual).</div></div>");
     }
     h += F("<div class='card'>");
 
-    h += F("<label for='c'>Canal de YouTube</label><input type='text' id='c' name='canal' required value='");
+    h += TR("<label for='c'>Canal de YouTube</label>", "<label for='c'>YouTube channel</label>");
+    h += F("<input type='text' id='c' name='canal' required value='");
     h += esc(cfg->channelInput);
-    h += F("' placeholder='@micanal'><label for='r'>Consultar YouTube cada (minutos)</label>"
-           "<input type='number' id='r' name='intervalo' min='1' max='1440' value='");
+    h += TR("' placeholder='@micanal'><label for='r'>Consultar YouTube cada (minutos)</label>",
+            "' placeholder='@mychannel'><label for='r'>Check YouTube every (minutes)</label>");
+    h += F("<input type='number' id='r' name='intervalo' min='1' max='1440' value='");
     h += String(cfg->refreshMin);
-    h += F("'><label for='k'>Clave de API nueva (opcional)</label><input type='text' id='k' name='clave' "
-           "autocomplete='off' autocapitalize='off' spellcheck='false' "
-           "pattern='AIza[0-9A-Za-z_\\-]{35}' title='La clave empieza por AIza y tiene 39 caracteres' "
-           "placeholder='Déjalo vacío para mantener la actual'>");
+    h += TR("'><label for='k'>Clave de API nueva (opcional)</label>", "'><label for='k'>New API key (optional)</label>");
+    h += F("<input type='text' id='k' name='clave' autocomplete='off' autocapitalize='off' spellcheck='false' "
+           "pattern='AIza[0-9A-Za-z_\\-]{35}' ");
+    h += TR("title='La clave empieza por AIza y tiene 39 caracteres' placeholder='Déjalo vacío para mantener la actual'>",
+            "title='The key starts with AIza and is 39 characters long' placeholder='Leave empty to keep the current one'>");
     String key = cfg->effectiveApiKey();
-    h += "<div class='muted'>Clave actual: " +
-         (key.length() > 8 ? esc(key.substring(0, 4)) + "…" + esc(key.substring(key.length() - 4)) : String("ninguna")) +
-         (cfg->apiKey.length() ? "" : (key.length() ? " (grabada en el código)" : "")) + "</div>";
+    h += String("<div class='muted'>") + TR("Clave actual: ", "Current key: ") +
+         (key.length() > 8 ? esc(key.substring(0, 4)) + "…" + esc(key.substring(key.length() - 4)) : String(TR("ninguna", "none"))) +
+         (cfg->apiKey.length() ? "" : (key.length() ? TR(" (grabada en el código)", " (built into the code)") : "")) + "</div>";
 
-    h += F("<button type='submit'>Guardar</button></div></form>"
-           "<p class='muted'>Para cambiar de red WiFi, mantén pulsado el botón BOOT 3 segundos.</p>"
-           "<p class='muted'>Firmware " FIRMWARE_VERSION " (" FIRMWARE_BOARD ") &middot; "
-           "<a href='/actualizar'>Actualizar firmware</a></p>"
-           "</main></body></html>");
+    h += TR("<button type='submit'>Guardar</button></div></form>"
+            "<p class='muted'>Para cambiar de red WiFi, mantén pulsado el botón BOOT 3 segundos.</p>"
+            "<p class='muted'>Firmware " FIRMWARE_VERSION " (" FIRMWARE_BOARD ") &middot; "
+            "<a href='/actualizar'>Actualizar firmware</a></p>"
+            "</main></body></html>",
+            "<button type='submit'>Save</button></div></form>"
+            "<p class='muted'>To change the WiFi network, hold the BOOT button for 3 seconds.</p>"
+            "<p class='muted'>Firmware " FIRMWARE_VERSION " (" FIRMWARE_BOARD ") &middot; "
+            "<a href='/actualizar'>Update firmware</a></p>"
+            "</main></body></html>");
     return h;
 }
 
@@ -281,8 +333,13 @@ static void handleSave()
         cfg->apiKey = key;
         changes |= WEB_CHANNEL;  // vuelve a consultar con la clave nueva
     }
+    int lang = langParse(server.arg("idioma"));
+    if (lang >= 0 && lang != cfg->lang) {
+        cfg->lang = lang;
+        changes |= WEB_DISPLAY;  // la pantalla cambia de idioma al momento
+    }
     settingsSave(*cfg);
-    sendPage("Guardado. El contador ya usa los ajustes nuevos.");
+    sendPage(TR("Guardado. El contador ya usa los ajustes nuevos.", "Saved. The counter is already using the new settings."));
 }
 
 // Vista previa mientras se mueven los controles (no se guarda): brillo,
@@ -320,23 +377,37 @@ static void handleUpdatePage()
 {
     String h;
     h.reserve(2500);
-    h += F("<!doctype html><html lang='es'><head><meta charset='utf-8'>"
-           "<meta name='viewport' content='width=device-width,initial-scale=1'><title>Actualizar firmware</title>");
+    h += TR("<!doctype html><html lang='es'><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'><title>Actualizar firmware</title>",
+            "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'><title>Update firmware</title>");
     h += STYLE;
-    h += F("</head><body><main><h1><b>&#9654;</b> Actualizar firmware</h1><div class='card'>"
-           "<p>Versión instalada: <b>" FIRMWARE_VERSION "</b> para la placa <b>" FIRMWARE_BOARD "</b>.</p>"
-           "<label for='f'>Archivo del firmware nuevo (.bin)</label><input type='file' id='f' accept='.bin'>"
-           "<div class='muted'>Solo se instala si es para esta placa. Si algo falla, sigue el actual.</div>"
-           "<button id='go' type='button'>Instalar</button>"
-           "<p id='st' class='muted'></p><progress id='pr' max='100' value='0' style='width:100%;display:none'></progress>"
-           "</div><p class='muted'><a href='/'>&larr; Volver a los ajustes</a></p></main><script>"
-           "go.onclick=function(){var x=f.files[0];if(!x){st.textContent='Elige primero el archivo .bin';return}"
-           "go.disabled=true;pr.style.display='block';st.textContent='Enviando… no cierres esta página.';"
+    h += TR("</head><body><main><h1><b>&#9654;</b> Actualizar firmware</h1><div class='card'>"
+            "<p>Versión instalada: <b>" FIRMWARE_VERSION "</b> para la placa <b>" FIRMWARE_BOARD "</b>.</p>"
+            "<label for='f'>Archivo del firmware nuevo (.bin)</label><input type='file' id='f' accept='.bin'>"
+            "<div class='muted'>Solo se instala si es para esta placa. Si algo falla, sigue el actual.</div>"
+            "<button id='go' type='button'>Instalar</button>"
+            "<p id='st' class='muted'></p><progress id='pr' max='100' value='0' style='width:100%;display:none'></progress>"
+            "</div><p class='muted'><a href='/'>&larr; Volver a los ajustes</a></p></main><script>"
+            "var lost='Se cortó la conexión. Vuelve a intentarlo.';"
+            "go.onclick=function(){var x=f.files[0];if(!x){st.textContent='Elige primero el archivo .bin';return}"
+            "go.disabled=true;pr.style.display='block';st.textContent='Enviando… no cierres esta página.';",
+            "</head><body><main><h1><b>&#9654;</b> Update firmware</h1><div class='card'>"
+            "<p>Installed version: <b>" FIRMWARE_VERSION "</b> for the <b>" FIRMWARE_BOARD "</b> board.</p>"
+            "<label for='f'>New firmware file (.bin)</label><input type='file' id='f' accept='.bin'>"
+            "<div class='muted'>It is only installed if it is for this board. If anything fails, the current one stays.</div>"
+            "<button id='go' type='button'>Install</button>"
+            "<p id='st' class='muted'></p><progress id='pr' max='100' value='0' style='width:100%;display:none'></progress>"
+            "</div><p class='muted'><a href='/'>&larr; Back to settings</a></p></main><script>"
+            "var lost='The connection dropped. Please try again.';"
+            "go.onclick=function(){var x=f.files[0];if(!x){st.textContent='Pick the .bin file first';return}"
+            "go.disabled=true;pr.style.display='block';st.textContent='Sending… do not close this page.';");
+    h += F(""
            "var d=new FormData();d.append('firmware',x);var r=new XMLHttpRequest();"
            "r.upload.onprogress=function(e){if(e.lengthComputable)pr.value=e.loaded*100/e.total};"
            "r.onload=function(){st.textContent=r.responseText;if(r.status==200)"
            "setTimeout(function(){location.href='/'},15000);else go.disabled=false};"
-           "r.onerror=function(){st.textContent='Se cortó la conexión. Vuelve a intentarlo.';go.disabled=false};"
+           "r.onerror=function(){st.textContent=lost;go.disabled=false};"
            "r.open('POST','/actualizar?size='+x.size);r.send(d)}"
            "</script></body></html>");
     server.send(200, "text/html; charset=utf-8", h);
@@ -351,25 +422,26 @@ static void handleUpdateUpload()
         updateError = "";
         lastShown = -1;
         Serial.printf("Actualización: recibiendo %s\n", u.filename.c_str());
-        if (!updaterBegin(server.arg("size").toInt())) updateError = "No hay sitio para el firmware nuevo";
-        screenProgress("Actualizando el contador", "Recibiendo por WiFi...", 0);
+        if (!updaterBegin(server.arg("size").toInt()))
+            updateError = TR("No hay sitio para el firmware nuevo", "No room for the new firmware");
+        screenProgress(TR("Actualizando el contador", "Updating the counter"), TR("Recibiendo por WiFi...", "Receiving over WiFi..."), 0);
     } else if (u.status == UPLOAD_FILE_WRITE) {
         if (updateError.length()) return;
         if (!updaterWrite(u.buf, u.currentSize)) {
-            updateError = "Error al escribir el firmware";
+            updateError = TR("Error al escribir el firmware", "Error writing the firmware");
             updaterAbort();
             return;
         }
         int pct = updaterProgress();
         if (pct / 5 != lastShown) {
             lastShown = pct / 5;
-            screenProgress("Actualizando el contador", "Recibiendo por WiFi...", pct);
+            screenProgress(TR("Actualizando el contador", "Updating the counter"), TR("Recibiendo por WiFi...", "Receiving over WiFi..."), pct);
         }
     } else if (u.status == UPLOAD_FILE_END) {
         if (!updateError.length()) updaterEnd(updateError);
     } else if (u.status == UPLOAD_FILE_ABORTED) {
         updaterAbort();
-        updateError = "Se cortó la subida";
+        updateError = TR("Se cortó la subida", "The upload was interrupted");
     }
 }
 
@@ -377,14 +449,16 @@ static void handleUpdateDone()
 {
     if (updateError.length()) {
         Serial.printf("Actualización: rechazada (%s)\n", updateError.c_str());
-        screenMessage("Actualización no instalada", updateError + ".", "Sigue el firmware actual.");
-        server.send(400, "text/plain; charset=utf-8", "No se ha instalado: " + updateError + ".");
+        screenMessage(TR("Actualización no instalada", "Update not installed"), updateError + ".",
+                      TR("Sigue el firmware actual.", "The current firmware stays."));
+        server.send(400, "text/plain; charset=utf-8", TR("No se ha instalado: ", "Not installed: ") + updateError + ".");
         return;
     }
     Serial.println("Actualización: hecha, reiniciando");
-    screenProgress("Actualización terminada", "Reiniciando...", 100);
+    screenProgress(TR("Actualización terminada", "Update finished"), TR("Reiniciando...", "Restarting..."), 100);
     server.send(200, "text/plain; charset=utf-8",
-                "Instalado. El contador se reinicia; esta página vuelve a los ajustes en unos segundos.");
+                TR("Instalado. El contador se reinicia; esta página vuelve a los ajustes en unos segundos.",
+                   "Installed. The counter restarts; this page goes back to the settings in a few seconds."));
     restartAt = millis() + 1500;
 }
 
@@ -392,7 +466,7 @@ static void handleUpdateDone()
 static void handleHistory()
 {
     if (!sdHasHistory()) {
-        server.send(404, "text/plain; charset=utf-8", "No hay historial en la tarjeta.");
+        server.send(404, "text/plain; charset=utf-8", TR("No hay historial en la tarjeta.", "There is no history on the card."));
         return;
     }
     File f = SD.open(sdHistoryPath());

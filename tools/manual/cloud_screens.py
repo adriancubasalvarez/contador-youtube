@@ -3,6 +3,7 @@ privados (clave, foto de perfil, número de proyecto), marca dónde pulsar y
 recorta la zona útil.
 
     python tools/manual/cloud_screens.py docs/capturas_raw docs/img
+    python tools/manual/cloud_screens.py docs/capturas_raw docs/img-en en     (etiquetas en inglés)
 
 Las coordenadas son las de capturas de 1568 px de ancho (la 05 es de 784 px).
 """
@@ -16,6 +17,11 @@ out.mkdir(parents=True, exist_ok=True)
 FONT = ImageFont.truetype(str(Path(__file__).parent / "fonts" / "FiraSans-Bold.ttf"), 20)
 RED = (217, 43, 43)
 
+# Con "en" como tercer argumento, las etiquetas en inglés (la consola sigue en español)
+EN = len(sys.argv) > 3 and sys.argv[3] == "en"
+EN_LABELS = {"Pulsa aquí": "Click here", "Crear": "Create", "Habilitar": "Enable", "Copiar": "Copy",
+             "Debe poner «Habilitada»": "Must say «Habilitada» (Enabled)"}
+
 
 def blur(img, box):
     region = img.crop(box).filter(ImageFilter.GaussianBlur(9))
@@ -28,6 +34,7 @@ def mark(img, box, label=None, at=None):
     x0, y0, x1, y1 = box
     d.rounded_rectangle([x0 - 5, y0 - 5, x1 + 5, y1 + 5], 10, outline=RED, width=4)
     if label:
+        label = EN_LABELS.get(label, label) if EN else label
         lx, ly = at
         w = d.textlength(label, font=FONT)
         d.rounded_rectangle([lx - 10, ly - 6, lx + w + 10, ly + 28], 8, fill=RED)

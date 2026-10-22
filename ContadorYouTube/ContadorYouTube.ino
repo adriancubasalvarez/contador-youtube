@@ -31,6 +31,7 @@
 #include "src/battery.h"
 #include "src/format.h"
 #include "src/history.h"
+#include "src/lang.h"
 #include "src/portal.h"
 #include "src/provision.h"
 #include "src/screen.h"
@@ -135,8 +136,9 @@ static bool connectWifi()
     while (millis() - start < WIFI_TIMEOUT_MS) {
         if (attempt++) {
             Serial.printf("WiFi: reintento %d\n", attempt);
-            screenMessage("Dashboard YouTube", "Conectando a la WiFi...", "Intento " + String(attempt) + " de " +
-                                                  String(WIFI_TIMEOUT_MS / WIFI_RETRY_MS));
+            screenMessage(TR("Contador YouTube", "YouTube Counter"), TR("Conectando a la WiFi...", "Connecting to WiFi..."),
+                          TR("Intento ", "Attempt ") + String(attempt) + TR(" de ", " of ") +
+                              String(WIFI_TIMEOUT_MS / WIFI_RETRY_MS));
             WiFi.disconnect();
             delay(300);
         }
@@ -163,17 +165,18 @@ static void ensureConnected()
     WiFi.mode(WIFI_STA);  // arranca la WiFi para poder leer la red guardada
     while (true) {
         String ssid = savedSsid();
-        screenMessage("Dashboard YouTube", "Conectando a la WiFi " + (ssid.length() ? "«" + ssid + "»" : String("")) + "...");
+        screenMessage(TR("Contador YouTube", "YouTube Counter"), TR("Conectando a la WiFi ", "Connecting to WiFi ") + (ssid.length() ? "«" + ssid + "»" : String("")) + "...");
         Serial.printf("WiFi: conectando a '%s'\n", ssid.c_str());
         if (connectWifi()) {
             Serial.printf("WiFi: conectado, IP %s\n", WiFi.localIP().toString().c_str());
             return;
         }
         Serial.printf("WiFi: no conecta (estado %d)\n", (int)WiFi.status());
-        screenMessage("Sin conexión WiFi",
-                      "No se pudo conectar a " + (ssid.length() ? "«" + ssid + "»" : String("tu WiFi")) +
-                          ". Revisa la red (2,4 GHz) y la contraseña.",
-                      "Abriendo la configuración...");
+        screenMessage(TR("Sin conexión WiFi", "No WiFi connection"),
+                      TR("No se pudo conectar a ", "Could not connect to ") +
+                          (ssid.length() ? "«" + ssid + "»" : String(TR("tu WiFi", "your WiFi"))) +
+                          TR(". Revisa la red (2,4 GHz) y la contraseña.", ". Check it is 2.4 GHz and the password."),
+                      TR("Abriendo la configuración...", "Opening setup..."));
         delay(4000);
         WiFi.disconnect();
         configure();
@@ -211,13 +214,14 @@ static void render()
     stats.battery = settings.battery ? batteryPercent() : -1;
 
     if (fatalTitle.length()) {
-        screenMessage(fatalTitle, fatalDetail, "Mantén BOOT 3 s para configurar");
+        screenMessage(fatalTitle, fatalDetail, TR("Mantén BOOT 3 s para configurar", "Hold BOOT 3 s to set it up"));
     } else if (detail != DETAIL_NONE && haveData) {
         renderDetail(now);
     } else if (page == PAGE_INFO) {
         screenInfo(webuiHost(), WiFi.localIP().toString());
     } else if (!haveData) {
-        screenMessage("Dashboard YouTube", WiFi.isConnected() ? "Consultando YouTube..." : "Conectando a la WiFi...");
+        screenMessage(TR("Contador YouTube", "YouTube Counter"), WiFi.isConnected() ? TR("Consultando YouTube...", "Checking YouTube...")
+                                                      : TR("Conectando a la WiFi...", "Connecting to WiFi..."));
     } else {
         screenPage((Page)page, stats, clockValid() ? localDay(now) : 0, now, stale);
     }
@@ -273,9 +277,9 @@ static void detectEvents(const ChannelStats &before, bool withVideo)
     }
     int64_t m = stats.subscribersHidden ? 0 : crossedMilestone(before.subscribers, stats.subscribers);
     if (m) {
-        celebrate(m, "suscriptores");
+        celebrate(m, TR("suscriptores", "subscribers"));
     } else if ((m = crossedViewsMark(before.views, stats.views))) {
-        celebrate(m, "vistas");
+        celebrate(m, TR("vistas", "views"));
     }
 }
 
@@ -288,9 +292,9 @@ static void showCommentToast(bool test)
         commentsFor = stats.videoId;
         commentsAt = millis();
     }
-    String title = test                   ? String("Comentario más reciente")
-                   : stats.newComments > 1 ? String(stats.newComments) + " comentarios nuevos"
-                                           : String("Comentario nuevo");
+    String title = test                   ? String(TR("Comentario más reciente", "Latest comment"))
+                   : stats.newComments > 1 ? String(stats.newComments) + TR(" comentarios nuevos", " new comments")
+                                           : String(TR("Comentario nuevo", "New comment"));
     String text = r == YtResult::Ok && commentCount ? comments[0].author + ": " + comments[0].text : stats.videoTitle;
     screenToast(TOUCH_COMMENTS, title, text);
 }
@@ -310,7 +314,7 @@ static void announce(AlertKind kind, bool test = false)
         }
         break;
     case ALERT_COMMENT: showCommentToast(test); break;
-    case ALERT_VIDEO: screenToast(TOUCH_VIDEOS, test ? "Tu último vídeo" : "Vídeo nuevo", stats.videoTitle); break;
+    case ALERT_VIDEO: screenToast(TOUCH_VIDEOS, test ? TR("Tu último vídeo", "Your latest video") : TR("Vídeo nuevo", "New video"), stats.videoTitle); break;
     }
     if (test) alertTest(kind, settings.volume);
     else alertPlay(kind);
@@ -327,7 +331,7 @@ static void simulate(AlertKind kind)
                 next = m;
                 break;
             }
-        celebrate(next ? next : stats.subscribers, "suscriptores");
+        celebrate(next ? next : stats.subscribers, TR("suscriptores", "subscribers"));
     }
     if (kind == ALERT_SUBSCRIBER) {
         int64_t step = 1;  // lo que sube la cifra redondeada de YouTube
@@ -367,13 +371,13 @@ static void fetch()
         minutesFromNow(settings.refreshMin);
         break;
     case YtResult::ChannelNotFound:
-        fatalTitle = "Canal no encontrado";
+        fatalTitle = TR("Canal no encontrado", "Channel not found");
         fatalDetail = settings.channelInput;
         minutesFromNow(settings.refreshMin);
         break;
     case YtResult::BadKey:
-        fatalTitle = "Clave API no válida";
-        fatalDetail = "Revisa la clave de la YouTube Data API v3.";
+        fatalTitle = TR("Clave API no válida", "Invalid API key");
+        fatalDetail = TR("Revisa la clave de la YouTube Data API v3.", "Check your YouTube Data API v3 key.");
         minutesFromNow(settings.refreshMin);
         break;
     case YtResult::QuotaExceeded:
@@ -427,8 +431,8 @@ void setup()
     sdBegin();
     updaterCheckSd();  // firmware.bin en la tarjeta: se instala y reinicia
     if (sdApplyConfig(settings, sdSummary)) {
-        screenMessage("Configuración desde la tarjeta", "Aplicado: " + sdSummary + ".",
-                      "El archivo pasa a llamarse config_aplicada.txt");
+        screenMessage(TR("Configuración desde la tarjeta", "Setup from the SD card"), TR("Aplicado: ", "Applied: ") + sdSummary + ".",
+                      TR("El archivo pasa a llamarse config_aplicada.txt", "The file is renamed to config_aplicada.txt"));
         delay(4000);
     }
     if (settings.channelInput != previousChannel) historyClear();  // canal nuevo: historial nuevo
@@ -477,10 +481,14 @@ static void applyWebChanges()
 static String detailError(YtResult r, const char *what)
 {
     switch (r) {
-    case YtResult::CommentsDisabled: return "Los comentarios están desactivados en este vídeo.";
-    case YtResult::QuotaExceeded: return "Se ha agotado la cuota diaria de la API de YouTube. Prueba mañana.";
-    case YtResult::NetworkError: return "Sin conexión con YouTube. Toca para volver e inténtalo de nuevo.";
-    default: return String("No se pudieron cargar ") + what + ".";
+    case YtResult::CommentsDisabled: return TR("Los comentarios están desactivados en este vídeo.", "Comments are turned off for this video.");
+    case YtResult::QuotaExceeded:
+        return TR("Se ha agotado la cuota diaria de la API de YouTube. Prueba mañana.",
+                  "The daily YouTube API quota is used up. Try again tomorrow.");
+    case YtResult::NetworkError:
+        return TR("Sin conexión con YouTube. Toca para volver e inténtalo de nuevo.",
+                  "Cannot reach YouTube. Tap to go back and try again.");
+    default: return TR("No se pudieron cargar ", "Could not load ") + String(what) + ".";
     }
 }
 
@@ -543,7 +551,7 @@ static void openDetail(TouchTarget target, int index)
     case TOUCH_COMMENTS:
         detail = DETAIL_COMMENTS;
         if (commentsFor != stats.videoId || !commentsAt || millis() - commentsAt > DETAIL_CACHE_MIN * 60000UL) {
-            detailStatus = "Cargando comentarios...";
+            detailStatus = TR("Cargando comentarios...", "Loading comments...");
             render();
             r = WiFi.isConnected() ? youtubeComments(settings, stats.videoId, comments, MAX_COMMENTS, commentCount, error)
                                    : YtResult::NetworkError;
@@ -552,20 +560,22 @@ static void openDetail(TouchTarget target, int index)
             commentsAt = r == YtResult::Ok ? millis() : 0;
             if (r != YtResult::Ok) commentCount = 0;
         }
-        detailStatus = r != YtResult::Ok ? detailError(r, "los comentarios")
+        detailStatus = r != YtResult::Ok ? detailError(r, TR("los comentarios", "the comments"))
                        : commentCount     ? String("")
-                                          : String("Todavía no hay comentarios en este vídeo.");
+                                          : String(TR("Todavía no hay comentarios en este vídeo.", "No comments on this video yet."));
         break;
     case TOUCH_VIDEOS:
         detail = DETAIL_VIDEOS;
         videosByGrowth = index == 1;  // desde "el que más crece": ordenados por lo que más crecen
         if (!videosAt || millis() - videosAt > RECENT_REFRESH_MIN * 60000UL) {
-            detailStatus = "Cargando vídeos...";
+            detailStatus = TR("Cargando vídeos...", "Loading videos...");
             render();
             r = fetchRecent(error);
             if (r != YtResult::Ok) videoCount = 0;
         }
-        detailStatus = r != YtResult::Ok ? detailError(r, "los vídeos") : videoCount ? String("") : String("Sin vídeos públicos.");
+        detailStatus = r != YtResult::Ok ? detailError(r, TR("los vídeos", "the videos"))
+                       : videoCount       ? String("")
+                                          : String(TR("Sin vídeos públicos.", "No public videos."));
         break;
     case TOUCH_DAY: detail = DETAIL_DAY; break;
     case TOUCH_SUBSCRIBERS: detail = DETAIL_SUBSCRIBERS; break;
@@ -619,7 +629,8 @@ static void checkBattery()
     if (pct > 20) warned = false;
     if (pct <= 10 && !warned) {
         warned = true;
-        screenToast(TOUCH_NONE, "Batería baja (" + String(pct) + " %)", "Conecta el cable USB para cargarla.");
+        screenToast(TOUCH_NONE, TR("Batería baja (", "Low battery (") + String(pct) + " %)",
+                    TR("Conecta el cable USB para cargarla.", "Plug in the USB cable to charge it."));
     }
 }
 

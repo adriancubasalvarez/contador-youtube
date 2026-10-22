@@ -1,6 +1,7 @@
 #include "updater.h"
 #include <SD.h>
 #include <Update.h>
+#include "lang.h"
 #include "screen.h"
 #include "sdcard.h"
 #include "version.h"
@@ -50,17 +51,19 @@ bool updaterWrite(const uint8_t *data, size_t len)
 bool updaterEnd(String &error)
 {
     if (!active) {
-        error = "No se pudo empezar la actualización";
+        error = TR("No se pudo empezar la actualización", "Could not start the update");
         return false;
     }
     active = false;
     if (!found) {
         Update.abort();
-        error = String("Este archivo no es el firmware del contador para esta placa (") + FIRMWARE_BOARD + ")";
+        error = String(TR("Este archivo no es el firmware del contador para esta placa (",
+                          "This file is not the counter firmware for this board (")) +
+                FIRMWARE_BOARD + ")";
         return false;
     }
     if (!Update.end(true)) {
-        error = String("Archivo dañado o incompleto: ") + Update.errorString();
+        error = String(TR("Archivo dañado o incompleto: ", "Damaged or incomplete file: ")) + Update.errorString();
         return false;
     }
     return true;
@@ -82,7 +85,7 @@ void updaterCheckSd()
     File f = SD.open(PATH);
     if (!f) return;
     Serial.printf("Actualización: firmware.bin de %u bytes en la tarjeta\n", (unsigned)f.size());
-    screenProgress("Actualizando el contador", "No lo desenchufes.", 0);
+    screenProgress(TR("Actualizando el contador", "Updating the counter"), TR("No lo desenchufes.", "Do not unplug it."), 0);
     String error;
     bool ok = updaterBegin(f.size());
     static uint8_t buf[4096];
@@ -91,13 +94,13 @@ void updaterCheckSd()
         int n = f.read(buf, sizeof(buf));
         if (n <= 0 || !updaterWrite(buf, n)) {
             ok = false;
-            error = "Error al leer o escribir el firmware";
+            error = TR("Error al leer o escribir el firmware", "Error reading or writing the firmware");
             break;
         }
         int pct = updaterProgress();
         if (pct / 5 != lastShown) {  // la pantalla, cada 5 %
             lastShown = pct / 5;
-            screenProgress("Actualizando el contador", "No lo desenchufes.", pct);
+            screenProgress(TR("Actualizando el contador", "Updating the counter"), TR("No lo desenchufes.", "Do not unplug it."), pct);
         }
     }
     f.close();
@@ -109,12 +112,13 @@ void updaterCheckSd()
     SD.rename(PATH, renamed);
     if (ok) {
         Serial.println("Actualización: hecha, reiniciando");
-        screenProgress("Actualización terminada", "Reiniciando...", 100);
+        screenProgress(TR("Actualización terminada", "Update finished"), TR("Reiniciando...", "Restarting..."), 100);
         delay(1500);
         ESP.restart();
     }
     Serial.printf("Actualización: rechazada (%s)\n", error.c_str());
-    screenMessage("Actualización no instalada", error + ".", "Sigue el firmware actual.");
+    screenMessage(TR("Actualización no instalada", "Update not installed"), error + ".",
+                  TR("Sigue el firmware actual.", "The current firmware stays."));
     delay(6000);
 }
 

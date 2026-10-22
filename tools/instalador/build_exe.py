@@ -5,6 +5,7 @@
 Antes: python tools/build_firmware.py (deja en dist/ los -completo.bin).
 Necesita: pip install pyinstaller esptool pyserial
 """
+import re
 import shutil
 import subprocess
 import sys
@@ -16,8 +17,16 @@ NAME = "InstaladorContadorYouTube"
 
 
 def main():
-    firmware = sorted(DIST.glob("contador-*-completo.bin"))
-    boards = {f.name.split("-")[1] for f in firmware}
+    def version(f):
+        return tuple(int(n) for n in re.search(r"-v(\d+)\.(\d+)\.(\d+)-completo", f.name).groups())
+
+    newest = {}  # placa -> el -completo.bin de versión más alta
+    for f in DIST.glob("contador-*-v*-completo.bin"):
+        board = f.name.split("-")[1]
+        if board not in newest or version(f) > version(newest[board]):
+            newest[board] = f
+    firmware = sorted(newest.values())
+    boards = set(newest)
     if boards != {"oled", "cyd"}:
         sys.exit("Faltan los firmware en dist/: ejecuta antes tools/build_firmware.py")
     work = HERE / "build"

@@ -1,53 +1,155 @@
-# Contador YouTube con ESP32
+# YouTube Counter with ESP32
 
-Pequeño dispositivo que muestra los datos públicos de un canal de YouTube.
+[Español](README.es.md) · **English**
 
-![Pantalla táctil del contador](docs/preview-cyd.png)
+A small desk gadget that shows a YouTube channel's public stats: subscribers,
+views, latest video, comments and which of your recent videos is growing
+fastest. In English or Spanish: each user chooses.
 
-## Descarga
+![The counter's touch screen](docs/preview-cyd-en.png)
 
-**[Descargar la última versión](https://github.com/adriancubasalvarez/contador-youtube/releases/latest)**:
-el zip lleva el instalador de Windows (sin Arduino IDE), el
-[manual en PDF](docs/manual-contador-youtube.pdf), los firmwares y las huellas
-SHA-256 para comprobar que los archivos son los originales. Necesitas tu propia
-clave gratuita de la API de YouTube (paso 1 del manual).
+## Download
 
-Un mismo proyecto da tres versiones:
+**[Download the latest version](https://github.com/adriancubasalvarez/contador-youtube/releases/latest)**:
+the zip includes the Windows installer (no Arduino IDE needed), the
+[PDF manual](docs/manual-youtube-counter.pdf) (in Spanish:
+[manual-contador-youtube.pdf](docs/manual-contador-youtube.pdf)), the firmware
+files and the SHA-256 fingerprints to check the files are the originals. You
+need your own free YouTube API key (step 1 of the manual).
 
-| Versión | Hardware | Coste | Uso |
+One project, three versions:
+
+| Version | Hardware | Cost | Use |
 |---|---|---|---|
-| **Gadget de escritorio** (`oled`) | ESP32 + OLED 0,96" de dos colores | **≈ 12 €** | Siempre enchufado por USB |
-| **Pantalla táctil a color** (`cyd`) | «Cheap Yellow Display» 2,8" con ESP32 integrado | ≈ 17 € | Siempre enchufado por USB, sin cables |
-| **Panel de tinta** (`t5-epd47-s3`) | LilyGo T5 4.7" ESP32-S3 | ≈ 40 € | Con batería durante semanas |
+| **Desk gadget** (`oled`) | ESP32 + two-color 0.96" OLED | **≈ €12 / $14** | Always plugged in over USB |
+| **Color touch screen** (`cyd`) | 2.8" "Cheap Yellow Display" with built-in ESP32 | ≈ €17 / $20 | Always plugged in over USB, no wiring |
+| **E-ink panel** (`t5-epd47-s3`) | LilyGo T5 4.7" ESP32-S3 | ≈ €40 | Runs on a battery for weeks (Spanish only) |
 
-Todas comparten la configuración desde el móvil, la consulta a YouTube y
-el historial diario. Solo cambia la parte que dibuja en la pantalla.
+They share the phone setup, the YouTube queries and the daily history. Only
+the part that draws on the screen changes.
 
 ---
 
-## Gadget de escritorio (ESP32 + OLED)
+## Color touch screen (CYD 2.8")
 
-![Pantallas del OLED](docs/preview-oled.png)
+It cycles through 5 views every 6 seconds: subscribers (and their change over
+7 days), total views (and today's), latest video, "fastest growing" (which of
+your 10 latest videos gains the most views in 24 h) and a views-per-day chart.
+The channel name and the time are shown at the top; the time turns amber if
+the data could not be refreshed. For the setup it shows a **QR code that joins
+your phone to the setup WiFi**, and on "Settings" another QR that opens the
+settings page.
 
-*Generado en el PC con la librería U8g2 real y las mismas fuentes
-(`tools/oled_preview/`); los datos son de ejemplo.*
+*Rendered on the PC with the same `src/cyd/screen.cpp`, the real LovyanGFX
+library and the same fonts (`tools/cyd_preview/`); the data are examples.*
 
-Va rotando entre 5 pantallas cada 6 segundos: suscriptores (y su cambio en
-7 días), vistas totales (y las de hoy), último vídeo, «el que más crece» (el
-de tus 10 últimos vídeos que más vistas gana en 24 h) y gráfico de vistas por
-día. De madrugada baja el brillo, y desplaza el contenido 1 píxel cada minuto
-para que el OLED no se queme.
+### Parts
 
-### Material (por unidad)
-
-| Pieza | Ejemplo | Precio |
+| Part | Example | Price |
 |---|---|---|
-| ESP32 USB-C (ESP32-WROOM-32, CH340) | Diymore NodeMCU ESP32, pack de 2 por 15,98 € | ≈ 8 € |
-| OLED 0,96" 128×64 I2C (SSD1306) | ELEGOO, pack de 3 por 11,99 € (con cables) | ≈ 4 € |
-| 4 cables dupont hembra-hembra | incluidos con las OLED de ELEGOO | — |
-| Cable USB-C y cargador de móvil | — | — |
+| 2.8" ILI9341 touch screen with ESP32-WROOM-32E | Freenove FNK0114F ("ESP32 CYD 2.8" … ILI9341 TN Touch") | ≈ €17 / $20 |
+| USB-C cable and phone charger | — | — |
 
-### Conexiones (4 cables, sin soldar)
+Nothing to wire: the screen is built in. The pins are those of the standard
+CYD (ESP32-2432S028), confirmed with Freenove's official setup: display on SPI
+14/13/12, CS 15, DC 2, backlight 21; XPT2046 touch on 25/32/39, CS 33.
+
+### Button and touch
+
+* **Tap the screen** (outside the areas below) or press **BOOT**: next view.
+* **Hold BOOT for 3 seconds**: opens the setup.
+
+Some items open a detail view when tapped. They all look the same (a box with
+a red border and `›`). Until an area has been used, its view shows a one-line
+hint ("Tap the box: last 30 days") and the border pulses when it appears; once
+tapped it is remembered and they go away.
+
+| Where | What it shows | API quota |
+|---|---|---|
+| The latest video's **comments** box | The 6 most recent comments, 2 at a time (tap for more) | 1 unit |
+| The **title** of the latest video or of "fastest growing" | Your 10 latest videos, 4 at a time: views, those gained in 24 h and engagement; sorted by recent or fastest growing (tap top right) | — (checked every 30 min) |
+| A chart **bar**, or "+… today ›" | Exact views for that day compared with the average | — |
+| Subscribers' "+… in 7 days ›" | How subscribers changed over 30 days | — |
+
+Tapping "‹" or an empty area goes back; with no taps it goes back by itself
+after 30 s.
+
+![Detail views](docs/preview-cyd-detalles-en.png)
+
+The touch is calibrated for the Freenove FNK0114F. If taps land in the wrong
+place on another CYD, compile with `-DCYD_TOUCH_DEBUG`, tap the four corners
+and adjust `x_min`/`x_max`/`y_min`/`y_max` in `src/cyd/screen.cpp` with the
+values printed on the serial monitor.
+
+### Alerts: screen, LED and sound
+
+After every check it compares with the previous one and announces the most
+important thing:
+
+| Event | Screen | LED | Sound |
+|---|---|---|---|
+| Milestone (100, 1,000, 10,000… subscribers; new first digit of views) | Card with animated confetti | Rainbow | Fanfare |
+| Subscribers go up | The number counts up and "+N" floats | 3 green flashes | 3 rising notes |
+| New comment on the latest video | Blue alert with author and text (tap to open) | Blue "breathing" until you see them | Soft "ding" |
+| New video | Red alert with the title | 3 red flashes | 3 notes |
+
+* **Ambient light** (settings page): when there are no alerts, the LED can be
+  off, steady, breathing, slow rainbow or "follows the channel" (green if
+  views are up today, amber if not), with any color, intensity and speed;
+  changes show live.
+* **LED white balance** (Ambient light → "Adjust the LED colors"): on this
+  board blue is much brighter than the others, so it is dimmed (factory
+  192/255/82, measured with a webcam) so white looks white. On Arduino core
+  3, LovyanGFX takes LEDC channel 0 for the backlight, so the LED pins use
+  `ledcAttach()` (free channel).
+* YouTube rounds subscribers to 3 significant digits: above 1,000 the alert
+  fires when the visible number changes (e.g. 128,400 → 128,500).
+* Requests: the channel every 2 min by default (can go down to 1), the latest
+  video every 10 min and the 10 latest videos every 30 min: ≈ 1,100 quota
+  units a day, out of the 10,000 of each user's key.
+* **Fastest growing:** the 10 latest videos are kept in memory with an hourly
+  reading (`src/trends.*`) and compared with the one from 24 h ago (or the
+  oldest since power-on). Engagement is (likes + comments) / views.
+* Sound comes from the DAC (GPIO26) to the **Speaker** connector: you need a
+  small 8 Ω, 1-3 W speaker with a 1.25 mm JST plug.
+
+### microSD card (optional)
+
+Any microSD in **FAT32** (cards up to 32 GB come that way; larger ones come
+in exFAT, which the ESP32 cannot read). Without a card everything works.
+
+* **Set up without a phone:** copy [`tarjeta-sd/config.txt.ejemplo`](tarjeta-sd/config.txt.ejemplo)
+  to the root of the card as `config.txt` with `wifi=`, `password=`,
+  `channel=`, `api_key=` and `language=en`, and turn the counter on. It
+  applies it, shows it on screen and renames it to `config_aplicada.txt` with
+  the password masked.
+* **Full history:** every check is appended to `historial.csv` (`;`-separated,
+  opens in Excel). Download it from the settings page.
+* **Your own sounds:** WAV files in the `sonidos/` folder named `hito.wav`
+  (milestone), `suscriptor.wav` (subscriber), `comentario.wav` (comment) or
+  `video.wav`. Mono, 16-22 kHz, 15 s at most.
+
+### Battery (optional)
+
+The **BAT** connector takes a 3.7 V LiPo with a 1.25 mm JST plug; the board
+charges it over USB. The board **cannot tell by itself whether a battery is
+there**, so tick "I have a battery connected" on the settings page; the
+header then shows the level and warns at 10 %.
+
+---
+
+## Desk gadget (ESP32 + OLED)
+
+![OLED screens](docs/preview-oled-en.png)
+
+The same 5 views on a 0.96" two-color OLED. At night it dims, and it shifts
+the content by 1 pixel every minute so the OLED does not burn in.
+
+| Part | Example | Price |
+|---|---|---|
+| USB-C ESP32 (ESP32-WROOM-32, CH340) | Diymore NodeMCU ESP32, pack of 2 | ≈ €8 / $9 |
+| 0.96" 128×64 I2C OLED (SSD1306) | ELEGOO, pack of 3 (with wires) | ≈ €4 / $5 |
+| 4 female-female dupont wires | included with the ELEGOO OLEDs | — |
 
 | OLED | ESP32 |
 |---|---|
@@ -56,359 +158,150 @@ para que el OLED no se queme.
 | SCL | GPIO 22 (D22) |
 | SDA | GPIO 21 (D21) |
 
-### Ajustes desde el navegador
-
-Con el contador ya funcionando, abre en un navegador de la misma WiFi la
-dirección que muestra la pantalla **AJUSTES** (`contador-xxxx.local` o su IP).
-Desde ahí se cambian el brillo (con vista previa en directo), los segundos por
-vista (o vistas fijas), el atenuado nocturno, el canal, el intervalo y la clave,
-sin volver a la configuración inicial.
-
-### Botón
-
-Usa el botón **BOOT** que ya trae la placa:
-* **Pulsación corta**: pasa a la siguiente pantalla.
-* **Mantenerlo 3 segundos**: abre la configuración (para cambiar de WiFi o de canal).
+**BOOT** button: short press = next view; hold 3 seconds = setup.
 
 ---
 
-## Pantalla táctil a color (CYD 2,8")
+## Language: English or Spanish
 
-![Pantallas de la CYD](docs/preview-cyd.png)
+Since 1.6.0, the screen, the settings page, the setup portal and the alerts
+are in **English or Spanish** (number format too: 128,400 or 128.400). It is
+chosen in the Windows installer ("Counter language"), in the setup portal
+("Idioma · Language"), on the settings page or with `language=en` in
+`config.txt`. Each text sits next to its translation with the
+`TR("español", "English")` macro in `src/lang.h`. The e-ink version and the
+serial monitor log are still Spanish only.
 
-*Generado en el PC con el mismo `src/cyd/screen.cpp`, la librería LovyanGFX
-real y las mismas fuentes (`tools/cyd_preview/`); los datos son de ejemplo.*
+## Setup
 
-Las mismas 5 pantallas que el OLED, a color y con el nombre del canal y la
-hora arriba. La hora sale en ámbar si los datos no se han podido actualizar.
-Para configurar enseña un **QR que conecta el móvil a la WiFi del portal**, y
-en «Ajustes» otro QR que abre la página de ajustes.
+* **Windows installer** (recommended): `InstaladorContadorYouTube.exe` writes
+  the firmware over USB and sends the WiFi, channel, API key and language. It
+  checks the channel and the key with YouTube from the PC first, and ends with
+  the counter's fixed address (`http://contador-xxxx.local`). It follows your
+  Windows language and can be switched to English or Spanish.
+* **From your phone:** join the open **`YT-Dashboard`** WiFi (or scan the QR),
+  the setup page opens (otherwise go to `http://192.168.4.1`), pick the
+  language, your WiFi, password, channel (`@mychannel` or the link) and your
+  API key, and click **Save**.
 
-### Material
+The public YouTube API does not give views per day: the device works them out
+from a daily record, so **the chart, "today" and the growth appear after 1-2
+days of use**.
 
-| Pieza | Ejemplo | Precio |
-|---|---|---|
-| Pantalla 2,8" ILI9341 táctil con ESP32-WROOM-32E | Freenove FNK0114F («ESP32 CYD 2.8" … ILI9341 TN Touch») | ≈ 17 € |
-| Cable USB-C y cargador de móvil | — | — |
+## API key (everyone creates their own)
 
-No hay que conectar nada: la pantalla va integrada. Los pines son los de la
-CYD estándar (ESP32-2432S028), confirmados con la configuración oficial de
-Freenove: pantalla en SPI 14/13/12, CS 15, DC 2, luz 21; táctil XPT2046 en
-25/32/39, CS 33.
+1. In [console.cloud.google.com](https://console.cloud.google.com) create a
+   project and enable **YouTube Data API v3**.
+2. *Credentials → Create credentials → API key*. Restrict it to "YouTube Data
+   API v3".
+3. Paste it in the installer or the setup page, along with the WiFi and the
+   channel.
 
-### Botón y pantalla táctil
+The published firmware **never contains an API key**: each user enters their
+own. `ContadorYouTube/secrets.h` (format in `secrets.example.h`) is only for
+your own tests. With no billing on the project and the key restricted to that
+API, there are never charges: if the quota runs out, the API stops answering
+until the next day. Free quota: 10,000 units a day per key; a counter uses
+about 1,100.
 
-* **Tocar la pantalla** (fuera de las zonas de abajo) o pulsar **BOOT**:
-  siguiente pantalla.
-* **Mantener BOOT 3 segundos**: abre la configuración.
+## Building from source
 
-Algunos elementos abren un detalle al tocarlos. Todos tienen el mismo aspecto
-(recuadro con borde rojo y `›`). Mientras una zona no se ha usado nunca, su
-pantalla lleva una pista de una línea («Toca el recuadro: últimos 30 días») y
-el borde late al aparecer; al tocarla una vez se recuerda y desaparecen.
+### Arduino IDE
 
-| Dónde | Qué muestra | Cuota de la API |
-|---|---|---|
-| Recuadro **comentarios** del último vídeo | Los 6 comentarios más recientes, de 2 en 2 (tocar para ver más) | 1 unidad |
-| **Título** del último vídeo o de «el que más crece» | Tus 10 últimos vídeos, de 4 en 4: vistas, las ganadas en 24 h e interacción; se ordenan por recientes o por lo que más crecen (tocando arriba a la derecha) | — (se consultan cada 30 min) |
-| Una **barra** del gráfico, o «+… hoy ›» | Vistas exactas de ese día y comparación con la media | — |
-| «+… en 7 días ›» de suscriptores | Evolución de los suscriptores en 30 días | — |
+1. Install **Arduino IDE 2** and, in the Boards Manager, **esp32 by Espressif
+   Systems** (tested with 3.3.12).
+2. In the Library Manager install **WiFiManager** (tzapu), **ArduinoJson**
+   (Benoit Blanchon) and **U8g2** (oliver) for the OLED or **LovyanGFX**
+   (lovyan03) for the touch screen.
+3. Open `ContadorYouTube/ContadorYouTube.ino`. For the touch screen, open the
+   **config.h** tab and remove the `//` from `// #define BOARD_CYD`.
+4. Tools: board **ESP32 Dev Module**, Partition Scheme **Minimal SPIFFS
+   (1.9MB APP with OTA/190KB SPIFFS)** (needed for later updates over WiFi)
+   and the board's COM port.
+5. Click **Upload**. The serial monitor runs at 115200 baud.
 
-Tocar «‹» o una zona vacía vuelve; si no se toca nada, vuelve solo a los
-30 s. Lo pedido a YouTube se reutiliza 5 minutos.
-
-![Vistas de detalle](docs/preview-cyd-detalles.png)
-
-El táctil está calibrado para la Freenove FNK0114F. Si en otra CYD los toques
-no caen donde deben, compila con `-DCYD_TOUCH_DEBUG`, toca las cuatro
-esquinas y ajusta `x_min`/`x_max`/`y_min`/`y_max` en `src/cyd/screen.cpp`
-con los valores que salen en el monitor serie.
-
-### Avisos: pantalla, LED y sonido
-
-Tras cada consulta compara con la anterior y avisa de lo más importante:
-
-| Evento | Pantalla | LED | Sonido |
-|---|---|---|---|
-| Hito (100, 1.000, 10.000… suscriptores; nueva primera cifra de vistas) | Tarjeta con confeti animado | Arcoíris | Fanfarria |
-| Suben los suscriptores | La cifra sube contando y «+N» flota | 3 destellos verdes | 3 notas que suben |
-| Comentario nuevo en el último vídeo | Aviso azul con autor y texto (tocar lo abre) | Azul que «respira» hasta que los ves | «Ding» suave |
-| Vídeo nuevo | Aviso rojo con el título | 3 destellos rojos | 3 notas |
-
-* **Luz de ambiente** (página de ajustes): cuando no hay avisos, el LED puede
-  estar apagado, fijo, respirando, en arcoíris lento o «según el canal» (verde
-  si hoy suben las vistas, ámbar si no), con color a elegir (predefinidos o
-  cualquiera), intensidad y velocidad; los cambios se ven al momento. De
-  fábrica: respirando en rojo YouTube al 30 %. Encima, señales breves: doble
-  pulso azul con comentarios sin ver y parpadeo ámbar cada 10 s sin conexión
-  (desactivable).
-* **Balance de blancos** del LED (en «Luz de ambiente → Ajustar los colores»):
-  en esta placa el azul luce mucho más que los otros, así que se atenúa
-  (de fábrica 192/255/82, medido con una webcam) para que el blanco salga
-  blanco. El LED usa PWM de 12 bits y «apagado» es el ciclo completo.
-  Ojo con el núcleo 3: LovyanGFX toma el canal LEDC 0 para la luz de la
-  pantalla, así que los pines del LED usan `ledcAttach()` (canal libre); con
-  canales fijos, el rojo compartía señal con la pantalla y se veía siempre.
-* YouTube redondea los suscriptores a 3 cifras: por encima de 1.000, el aviso
-  salta cuando cambia la cifra visible (p. ej. 128.400 → 128.500).
-* Consultas: el canal cada 2 min por defecto (se puede bajar a 1), el último
-  vídeo cada 10 min y los 10 últimos vídeos cada 30 min: ≈ 1.100 unidades de
-  cuota al día, de las 10.000 de la clave de cada usuario.
-* **El que más crece:** los 10 últimos vídeos se guardan en memoria con una
-  medida por hora (`src/trends.*`); se compara con la de hace 24 h (o con la
-  más antigua tras encender). La interacción es (me gusta + comentarios) /
-  vistas. Aparece a la hora de encender.
-* En la página de ajustes: volumen (0 = sin sonido), luz sí/no y botones para
-  **probar** cada aviso con los datos del canal. Con «De noche» activado, de
-  0:00 a 7:00 no hay sonido ni LED.
-* El sonido se genera con el DAC (GPIO26) hacia el conector **Speaker**: hace
-  falta un altavoz pequeño de 8 Ω, 1-3 W, con conector JST de 1,25 mm.
-
-### Tarjeta microSD (opcional)
-
-Cualquier microSD en **FAT32**: las de hasta 32 GB ya vienen así. Las de 64 GB
-o más vienen en exFAT, que el ESP32 no lee (en el monitor serie sale «There is
-no valid FAT volume»): hay que formatearlas en FAT32, y Windows no lo ofrece
-para tarjetas tan grandes. Sin tarjeta, todo funciona igual.
-
-* **Configurar sin móvil:** copia [`tarjeta-sd/config.txt.ejemplo`](tarjeta-sd/config.txt.ejemplo)
-  a la raíz de la tarjeta como `config.txt`, rellena la WiFi, la contraseña y
-  el canal, y enciende el contador. Lo aplica, lo enseña en pantalla y lo
-  renombra a `config_aplicada.txt` con la contraseña tapada.
-* **Historial completo:** cada consulta se añade a `historial.csv` (separado
-  por `;`, se abre con Excel). Se descarga desde la página de ajustes.
-* **Sonidos propios:** WAV en la carpeta `sonidos/` llamados `hito.wav`,
-  `suscriptor.wav`, `comentario.wav` o `video.wav`. Mejor mono, 16-22 kHz,
-  como mucho 15 s (Audacity: *Archivo → Exportar → WAV, 16 bits*). No se usa
-  MP3: su decodificador ocuparía el pin del táctil.
-
-La tarjeta usa el bus VSPI (CS 5, SCK 18, MISO 19, MOSI 23). Por eso el táctil
-se lee por software en sus propios pines (25/32/39/33).
-
-### Batería (opcional)
-
-El conector **BAT** admite una LiPo de 3,7 V con conector JST de 1,25 mm; la
-placa la carga cuando hay USB. Sin batería, el cargador deja ~4,17 V en el pin
-de medida (GPIO34), igual que una batería llena: la placa **no puede saber
-sola si hay batería**. Por eso, en la página de ajustes hay que marcar
-«Tengo una batería conectada»; entonces la cabecera enseña el nivel y, al
-10 %, avisa de que la conectes. Con la pantalla siempre encendida dura horas,
-no días.
-
----
-
-## Panel de tinta (LilyGo T5 4.7")
-
-![Panel](docs/preview-dashboard.png)
-
-*Vista previa aproximada generada con `tools/preview.py`.*
-
-Compra la versión **ESP32-S3 normal**, no la «Pro» (lleva otro hardware y no
-es compatible). Entre actualizaciones (cada 30 minutos) el ESP32 duerme y la
-tinta conserva la imagen sin gastar energía. Botón **IO21**: una pulsación
-corta actualiza al momento; mantenerlo 3 segundos abre la configuración.
-
----
-
-## Configuración por el usuario (las dos versiones)
-
-1. Enchúfalo. La pantalla pide conectarse a la WiFi **`YT-Dashboard`** (la
-   versión de tinta muestra además un código QR).
-2. Al conectarse, el móvil abre solo la página de configuración. Si no se
-   abre, entra en `http://192.168.4.1`.
-3. Elige tu WiFi, escribe la contraseña y tu canal (`@micanal` o el enlace)
-   y pulsa **Guardar**.
-
-La API pública de YouTube no da vistas por día. El dispositivo las calcula
-guardando un registro diario, así que **el gráfico, «vistas hoy» y el
-crecimiento aparecen tras 1-2 días de uso**.
-
-## Clave de la API (cada persona crea la suya)
-
-1. En [console.cloud.google.com](https://console.cloud.google.com) crea un
-   proyecto y habilita **YouTube Data API v3**.
-2. *Credenciales → Crear credenciales → Clave de API*. Restríngela a
-   «YouTube Data API v3».
-3. Pégala en la página de configuración del contador, junto con la WiFi y el
-   canal. Esa página explica cómo crearla y comprueba su formato.
-
-El código se descarga y se carga tal cual, sin tocar nada. Quien fabrique
-varios contadores con su propia clave puede grabarla en el código creando la
-pestaña `ContadorYouTube/secrets.h` (formato en `secrets.example.h`). Entonces
-el campo de la configuración pasa a ser opcional.
-
-Sin facturación en el proyecto y con la clave restringida a esa API, nunca hay
-cobros: si se agota la cuota, la API deja de responder hasta el día siguiente.
-
-**Cuota**: el límite gratuito es de 10.000 unidades al día por proyecto.
-
-| Versión | Consumo diario por unidad | Unidades por clave |
-|---|---|---|
-| OLED (canal cada 5 min, vídeo cada 30 min) | ≈ 384 | ≈ 25 |
-| Tinta (todo cada 30 min) | ≈ 144 | ≈ 65 |
-
-Si vas a fabricar más, sube el intervalo en el portal, solicita a Google más
-cuota o reparte varias claves.
-
-## Cargar el código
-
-### Gadget OLED, con Arduino IDE (recomendado)
-
-1. Instala **Arduino IDE 2** y, en el Gestor de placas, **esp32 de Espressif
-   Systems** (probado con la versión 3.3.12).
-2. En el Gestor de bibliotecas instala **WiFiManager** (tzapu),
-   **ArduinoJson** (Benoit Blanchon) y **U8g2** (oliver).
-3. Abre `ContadorYouTube/ContadorYouTube.ino`. Crea la pestaña `secrets.h`
-   con tu clave (formato en `secrets.example.h`).
-4. Herramientas: placa **ESP32 Dev Module**, Partition Scheme **Minimal SPIFFS
-   (1.9MB APP with OTA/190KB SPIFFS)** y el puerto COM de la placa. Este
-   esquema deja dos huecos para el programa: hace falta para actualizar
-   después sin cable.
-5. Pulsa **Subir**. El Monitor Serie va a 115200 baudios.
-
-### Pantalla táctil CYD, con Arduino IDE
-
-Igual que el gadget OLED, con dos cambios:
-
-* En el paso 2, instala **LovyanGFX** (lovyan03) en lugar de U8g2.
-* Antes de subir, abre la pestaña **config.h** y borra las `//` del principio
-  de la línea `// #define BOARD_CYD`.
-
-`build_opt.h` hace que el portal de WiFiManager salga en español.
-
-### Con PlatformIO (también sirve para el panel de tinta)
-
-`platformio.ini` usa la misma carpeta `ContadorYouTube/` como código fuente.
-
-```bash
-pio run -e oled -t upload
-```
+### PlatformIO (also for the e-ink panel)
 
 ```bash
 pio run -e cyd -t upload
 ```
 
 ```bash
+pio run -e oled -t upload
+```
+
+```bash
 pio run -e t5-epd47-s3 -t upload
 ```
 
-* Las placas Diymore usan el chip **CH340**. Si Windows no detecta el puerto,
-  instala su controlador.
-* Si la carga se queda en «Connecting...», mantén pulsado **BOOT** hasta que
-  empiece.
+### Publishing a release
 
-## Instalador para Windows (sin Arduino IDE)
+Bump `FIRMWARE_VERSION` in `src/version.h`, run `python tools/build_firmware.py`
+(it builds both boards with `-DPUBLIC_BUILD`, refuses to publish if the key is
+in a `.bin`, and leaves the update `.bin` and the full `-completo.bin` in
+`dist/`), then `python tools/instalador/build_exe.py` for the installer
+(`pip install pyinstaller esptool pyserial`). The manuals are built with
+`tools/manual/build_manual.py` (Spanish) and `build_manual_en.py` (English).
 
-`dist/InstaladorContadorYouTube.exe` (un solo archivo, con el firmware de las
-dos placas dentro) lo hace todo por el cable USB:
+## Updating the firmware over WiFi
 
-1. Eliges la placa (OLED o pantalla táctil CYD).
-2. Detecta la placa al enchufarla. Si Windows no la reconoce, ofrece el
-   controlador CH340. Si ya tiene el contador, permite **solo cambiar la
-   configuración** sin reinstalar.
-3. Graba el firmware completo, con barra de progreso.
-4. Pide la WiFi (con las redes del PC; si el PC está en una de 5 GHz, propone
-   la de 2,4 GHz), la contraseña, el canal y la **clave de API del usuario**.
-   Comprueba el canal y la clave con YouTube desde el PC antes de enviarlos.
-5. Lo envía por el cable, espera a que el contador se conecte y consulte
-   YouTube, y termina con su dirección fija (`http://contador-xxxx.local`,
-   con la IP como alternativa) y un acceso directo en el escritorio.
+* **Settings page:** "Update firmware" link at the bottom (or
+  `http://contador-xxxx.local/actualizar`), pick the `.bin` for your board
+  and it installs.
+* **SD card (CYD):** copy the `.bin` to the root as `firmware.bin` and power
+  on. It installs with a progress bar and renames it to
+  `firmware_instalado.bin` (or `firmware_rechazado.bin` if it was not valid).
 
-Por el cable, el firmware escucha durante 1,2 s al arrancar las órdenes `INFO`
-y `CONFIG {json}` (ver `src/provision.h`).
+The new firmware is written to the free slot and only activated if it arrived
+complete and carries the mark of **the same board** (`CONTADOR-YT-PLACA:cyd|…`).
+Settings are kept.
 
-Para generarlo: `python tools/build_firmware.py` y después
-`python tools/instalador/build_exe.py` (necesita `pip install pyinstaller
-esptool pyserial`). Mientras no esté firmado con un certificado de código,
-Windows mostrará «Windows protegió su PC» al abrirlo descargado: hay que pulsar
-«Más información → Ejecutar de todas formas».
-
-## Actualizar el firmware sin cable
-
-Desde la versión 1.2.0, una vez cargado por USB con el esquema «Minimal
-SPIFFS», el contador se actualiza de dos formas:
-
-* **Página de ajustes:** enlace «Actualizar firmware» al pie (o
-  `http://contador-xxxx.local/actualizar`), eliges el `.bin` y se instala.
-* **Tarjeta SD (CYD):** copia el `.bin` a la raíz con el nombre
-  `firmware.bin` y enciende. Lo instala con barra de progreso y lo renombra a
-  `firmware_instalado.bin` (o `firmware_rechazado.bin` si no valía).
-
-El firmware nuevo se escribe en el hueco libre y solo se activa si llegó
-entero y lleva la marca de **la misma placa** (`CONTADOR-YT-PLACA:cyd|…`):
-si se va la luz o el archivo es de la otra placa, sigue el actual. La versión
-instalada sale al pie de la página de ajustes.
-
-Para publicar una versión: sube `FIRMWARE_VERSION` en `src/version.h` y ejecuta
-`python tools/build_firmware.py`. Deja en `dist/`, por placa, el `.bin` de
-actualización y el `-completo.bin` (instalación desde cero por USB, en 0x0).
-
-**El firmware publicado nunca lleva clave de API.** El script compila con
-`-DPUBLIC_BUILD`, que ignora `secrets.h`, y se niega a publicar si encuentra la
-clave en el `.bin`. Cada usuario pone la suya en la configuración inicial. La
-clave de `secrets.h` es solo para las pruebas propias.
-
-## Estructura
+## Project structure
 
 ```
-ContadorYouTube/              # sketch de Arduino (se abre en Arduino IDE)
-├── ContadorYouTube.ino       # programa del gadget (OLED y CYD)
-├── config.h                  # qué pantalla se compila (OLED o CYD)
-├── secrets.example.h         # plantilla de la clave (secrets.h no se sube)
-├── build_opt.h               # portal de configuración en español
+ContadorYouTube/              # Arduino sketch (open it in Arduino IDE)
+├── ContadorYouTube.ino       # main program (OLED and CYD)
+├── config.h                  # which screen is compiled (OLED or CYD)
+├── secrets.example.h         # key template (secrets.h is not committed)
 └── src/
-    ├── settings.*, portal.*  # configuración (NVS) y portal cautivo
-    ├── youtube.*, certs.h    # Data API v3 por HTTPS con las raíces de Google
-    ├── history.*             # registro diario: vistas/día y crecimiento
-    ├── format.*, util.h      # números en español, fechas
-    ├── screen.h              # lo que el programa pide a cada pantalla
-    ├── oled/                 # dibujo de las pantallas OLED
-    ├── cyd/                  # dibujo de la pantalla táctil a color y sus fuentes
-    ├── webui.*               # página de ajustes en la red local
-    ├── updater.*, version.h  # actualización sin cable y versión/placa del firmware
-    ├── provision.*           # configuración por USB (instalador) y desde config.txt
-    ├── alerts.*              # avisos con el LED RGB y el altavoz (CYD)
-    ├── sdcard.*              # tarjeta microSD: config.txt, historial.csv, sonidos (CYD)
-    ├── battery.*             # nivel de la batería (CYD)
-    └── epd47/                # versión de tinta (solo se compila con PlatformIO)
+    ├── settings.*, portal.*  # settings (NVS) and captive portal
+    ├── lang.h                # language: TR("español", "English")
+    ├── youtube.*, certs.h    # Data API v3 over HTTPS with Google's roots
+    ├── history.*, trends.*   # daily record, views/day and fastest growing
+    ├── format.*, util.h      # numbers and dates in the chosen language
+    ├── oled/, cyd/           # drawing for each screen
+    ├── webui.*               # settings page on the local network
+    ├── updater.*, version.h  # over-the-air update and firmware version/board
+    ├── provision.*           # setup over USB (installer) and from config.txt
+    ├── alerts.*, sdcard.*, battery.*   # LED/sound, microSD, battery (CYD)
+    └── epd47/                # e-ink version (PlatformIO only)
 tools/
-├── build_firmware.py         # genera los .bin publicables de las dos placas en dist/
-├── instalador/               # instalador de Windows (Python + tkinter + esptool → .exe)
-├── manual/                   # genera el manual en PDF
-├── oled_preview/             # vista previa del OLED con U8g2 en el PC
-├── cyd/make_fonts.py         # genera src/cyd/fonts.h (Fira Sans → VLW)
-├── cyd_preview/              # vista previa de la CYD con LovyanGFX en el PC
-└── preview.py                # vista previa aproximada del panel de tinta
+├── build_firmware.py         # builds the publishable .bin files into dist/
+├── instalador/               # Windows installer (Python + tkinter + esptool → .exe)
+├── manual/                   # builds the PDF manuals (Spanish and English)
+├── oled_preview/, cyd_preview/   # screen previews on the PC
+└── cyd/make_fonts.py         # builds src/cyd/fonts.h (Fira Sans → VLW)
 ```
 
-## Opciones de compilación
+## Limitations
 
-* `DEVICE_TZ` (en `ContadorYouTube/src/settings.h`): zona horaria POSIX. Por defecto, España
-  peninsular. Canarias: `"WET0WEST,M3.5.0/1,M10.5.0"`.
-* `DEFAULT_REFRESH_MIN`: intervalo por defecto (2 min en OLED y táctil, 30 en
-  tinta; el usuario puede cambiarlo en la página de ajustes, mínimo 1).
+* **Subscribers rounded** to 3 significant digits: YouTube's public API policy.
+* No Analytics data (retention, CTR, revenue): they need a Google sign-in.
+* The `YT-Dashboard` network is open and only active during setup (10 minutes
+  at most per attempt).
+* The touch screen is tested on the real board; the OLED and e-ink versions
+  have not been retested on hardware since the touch version.
 
-## Limitaciones
-
-* **Suscriptores redondeados** a 3 cifras significativas: es una política de
-  YouTube en su API pública.
-* Sin datos de Analytics (retención, CTR, ingresos): requieren iniciar sesión
-  con Google.
-* La red `YT-Dashboard` es abierta y solo está activa durante la configuración
-  (10 minutos como máximo por intento).
-* La pantalla táctil está probada en la placa real; la OLED y la de tinta no
-  se han vuelto a probar en placa desde la versión táctil.
-
-## Licencia
+## License
 
 Copyright (c) 2026 Adrian Cubas.
 
-* **Código y firmware:** [PolyForm Noncommercial 1.0.0](LICENSE.md). Se puede
-  usar, estudiar, modificar y compartir sin fines comerciales; venderlo
-  (unidades, kits o el firmware) requiere permiso del autor.
-* **Instalador de Windows** (`tools/instalador/`): GPL-2.0-or-later
-  ([tools/instalador/LICENSE](tools/instalador/LICENSE)), porque lleva dentro
+* **Code and firmware:** [PolyForm Noncommercial 1.0.0](LICENSE.md). You may
+  use, study, modify and share it for non-commercial purposes; selling it
+  (units, kits or the firmware) needs the author's permission.
+* **Windows installer** (`tools/instalador/`): GPL-2.0-or-later
+  ([tools/instalador/LICENSE](tools/instalador/LICENSE)), because it bundles
   esptool.
-* **Manual e imágenes** (`docs/`): [CC BY-NC 4.0](LICENCIA-MANUAL.txt).
-* **Terceros** (LovyanGFX, WiFiManager, ArduinoJson, U8g2, Fira Sans, núcleo
-  Arduino ESP32, esptool…): [AVISOS-TERCEROS.txt](AVISOS-TERCEROS.txt).
+* **Manuals and images** (`docs/`): [CC BY-NC 4.0](LICENCIA-MANUAL.txt).
+* **Third parties** (LovyanGFX, WiFiManager, ArduinoJson, U8g2, Fira Sans,
+  Arduino ESP32 core, esptool…): [AVISOS-TERCEROS.txt](AVISOS-TERCEROS.txt).

@@ -7,6 +7,7 @@
 #include <LovyanGFX.hpp>
 #include "../format.h"
 #include "../history.h"
+#include "../lang.h"
 #include "../trends.h"
 #include "fonts.h"
 #ifndef CYD_PREVIEW
@@ -373,34 +374,35 @@ static void label(int y, const String &s)
 
 static void drawSubscribers(const ChannelStats &st, int32_t today)
 {
-    if (!bubbleActive) label(70, "SUSCRIPTORES");
+    if (!bubbleActive) label(70, TR("SUSCRIPTORES", "SUBSCRIBERS"));
     if (st.subscribersHidden) {
         font(FontStrong);
-        text(W / 2, 135, "Contador oculto", C_MUTED, 1);
+        text(W / 2, 135, TR("Contador oculto", "Count hidden"), C_MUTED, 1);
         return;
     }
     bigNumber(124, fmtInt(st.subscribers), fmtCompact(st.subscribers));
     int64_t delta = 0;
     int span = historySubscriberDelta(today, 7, st.subscribers, delta);
     if (span > 0) {
-        String d = delta == 0 ? String("Sin cambios") : (delta > 0 ? "+" : "-") + fmtCompact(delta < 0 ? -delta : delta);
-        pill(170, d + (span == 1 ? " desde ayer" : " en " + String(span) + " días"),
+        String d = delta == 0 ? String(TR("Sin cambios", "No change")) : (delta > 0 ? "+" : "-") + fmtCompact(delta < 0 ? -delta : delta);
+        pill(170, d + (span == 1 ? String(TR(" desde ayer", " since yesterday"))
+                                  : TR(" en ", " in ") + String(span) + TR(" días", " days")),
              delta > 0 ? C_UP : delta < 0 ? C_DOWN : C_MUTED, delta > 0 ? 1 : delta < 0 ? -1 : 0, TOUCH_SUBSCRIBERS, 0,
              L_SUBSCRIBERS);
-        if (!(learned & L_SUBSCRIBERS)) hint("Toca el recuadro: últimos 30 días");
+        if (!(learned & L_SUBSCRIBERS)) hint(TR("Toca el recuadro: últimos 30 días", "Tap the box: last 30 days"));
     }
 }
 
 static void drawViews(const ChannelStats &st, int32_t today)
 {
-    label(70, "VISTAS TOTALES");
+    label(70, TR("VISTAS TOTALES", "TOTAL VIEWS"));
     bigNumber(124, fmtInt(st.views), fmtCompact(st.views));
     int64_t todayViews[1];
     historyDailyViews(today, 1, todayViews);
     if (todayViews[0] >= 0) {
-        pill(170, "+" + fmtCompact(todayViews[0]) + " hoy", todayViews[0] > 0 ? C_UP : C_MUTED, todayViews[0] > 0, TOUCH_DAY, 13,
+        pill(170, "+" + fmtCompact(todayViews[0]) + TR(" hoy", " today"), todayViews[0] > 0 ? C_UP : C_MUTED, todayViews[0] > 0, TOUCH_DAY, 13,
              L_DAY);
-        if (!(learned & L_DAY)) hint("Toca el recuadro: vistas de cada día");
+        if (!(learned & L_DAY)) hint(TR("Toca el recuadro: vistas de cada día", "Tap the box: views per day"));
     }
 }
 
@@ -418,11 +420,11 @@ static void statChip(int x, int y, int w, const String &value, const String &nam
 static void drawVideo(const ChannelStats &st, time_t now)
 {
     font(FontLabel);
-    text(16, 66, "ÚLTIMO VÍDEO", C_MUTED);
+    text(16, 66, TR("ÚLTIMO VÍDEO", "LATEST VIDEO"), C_MUTED);
     text(W - 16, 66, fmtAgo(st.videoPublished, now), C_MUTED, 2);
     if (!st.hasVideo) {
         font(FontStrong);
-        text(W / 2, 135, "Sin vídeos públicos", C_MUTED, 1);
+        text(W / 2, 135, TR("Sin vídeos públicos", "No public videos"), C_MUTED, 1);
         return;
     }
     // Título en una tarjeta tocable: abre los últimos vídeos
@@ -436,46 +438,53 @@ static void drawVideo(const ChannelStats &st, time_t now)
     zone(0, 44, W, 98, TOUCH_VIDEOS);
 
     const int y = 142, gap = 8, w = (W - 32 - 2 * gap) / 3;
-    statChip(16, y, w, fmtCompact(st.videoViews), "vistas", false);
-    statChip(16 + w + gap, y, w, st.videoLikes >= 0 ? fmtCompact(st.videoLikes) : String("—"), "me gusta", false);
+    statChip(16, y, w, fmtCompact(st.videoViews), TR("vistas", "views"), false);
+    statChip(16 + w + gap, y, w, st.videoLikes >= 0 ? fmtCompact(st.videoLikes) : String("—"), TR("me gusta", "likes"), false);
     bool comments = st.videoComments > 0;
     statChip(16 + 2 * (w + gap), y, w, st.videoComments >= 0 ? fmtCompact(st.videoComments) : String("—"),
-             st.newComments > 0 ? String(st.newComments) + (st.newComments == 1 ? " nuevo" : " nuevos") : String("comentarios"),
+             st.newComments > 0 ? String(st.newComments) + TR(" nuevo", " new") + (st.newComments == 1 || langEn() ? "" : "s")
+                                 : String(TR("comentarios", "comments")),
              comments);
     if (st.newComments > 0) cv->fillSmoothCircle(W - 18, y + 2 - oy, 6, C_RED);
     if (comments) zone(16 + 2 * (w + gap) - 6, y - 8, w + 12, 74, TOUCH_COMMENTS);
     bool knowsVideos = learned & L_VIDEOS, knowsComments = (learned & L_COMMENTS) || !comments;
-    if (!knowsVideos && !knowsComments) hint("Toca el título o los comentarios");
-    else if (!knowsVideos) hint("Toca el título: tus últimos vídeos");
-    else if (!knowsComments) hint("Toca los comentarios para leerlos");
+    if (!knowsVideos && !knowsComments) hint(TR("Toca el título o los comentarios", "Tap the title or the comments"));
+    else if (!knowsVideos) hint(TR("Toca el título: tus últimos vídeos", "Tap the title: your latest videos"));
+    else if (!knowsComments) hint(TR("Toca los comentarios para leerlos", "Tap the comments to read them"));
 }
 
 // "+2,4 K en 24 h" / "+120 en 3 h"
 static String gainText(int64_t gain, int hours)
 {
-    return "+" + fmtCompact(gain) + " en " + String(hours) + " h";
+    return "+" + fmtCompact(gain) + TR(" en ", " in ") + String(hours) + " h";
+}
+
+static String decimal(float v)  // "3,2" / "3.2"
+{
+    String t = String(v, 1);
+    if (!langEn()) t.replace(".", ",");
+    return t;
 }
 
 static String timesText(float times)  // "x3,2"
 {
-    String t = String(times, 1);
-    t.replace(".", ",");
-    if (t.endsWith(",0")) t.remove(t.length() - 2);
+    String t = decimal(times);
+    if (t.endsWith(",0") || t.endsWith(".0")) t.remove(t.length() - 2);
     return "x" + t;
 }
 
 static void drawTrend(const ChannelStats &st)
 {
     font(FontLabel);
-    text(16, 66, "EL QUE MÁS CRECE", C_MUTED);
+    text(16, 66, TR("EL QUE MÁS CRECE", "FASTEST GROWING"), C_MUTED);
     if (!st.hasTrend) {
         font(FontBody);
-        text(W / 2, 124, "Compara cuántas vistas gana", C_MUTED, 1);
-        text(W / 2, 148, "cada uno de tus 10 últimos vídeos.", C_MUTED, 1);
-        text(W / 2, 172, "Aparece en 1 hora.", C_MUTED, 1);
+        text(W / 2, 124, TR("Compara cuántas vistas gana", "Compares the views gained by"), C_MUTED, 1);
+        text(W / 2, 148, TR("cada uno de tus 10 últimos vídeos.", "each of your 10 latest videos."), C_MUTED, 1);
+        text(W / 2, 172, TR("Aparece en 1 hora.", "Shows up in 1 hour."), C_MUTED, 1);
         return;
     }
-    text(W - 16, 66, "últimas " + String(st.trendHours) + " h", C_MUTED, 2);
+    text(W - 16, 66, TR("últimas ", "last ") + String(st.trendHours) + " h", C_MUTED, 2);
     // Título en tarjeta tocable: abre tus vídeos ordenados por lo que más crecen
     roundBox(10, 72, W - 20, 62, 10, C_PANEL);
     touchBorder(10, 72, W - 20, 62, 10, L_VIDEOS);
@@ -491,25 +500,25 @@ static void drawTrend(const ChannelStats &st)
     int gw = width(gain);
     text(16, 176, gain, C_UP);
     font(FontBody);
-    text(16 + gw + 10, 159, "vistas", C_MUTED);
-    text(16 + gw + 10, 178, "en " + String(st.trendHours) + " h", C_MUTED);
+    text(16 + gw + 10, 159, TR("vistas", "views"), C_MUTED);
+    text(16 + gw + 10, 178, TR("en ", "in ") + String(st.trendHours) + " h", C_MUTED);
     // Debajo: frente a los demás vídeos e interacción
     font(FontSmall);
     int x = 16;
     if (st.trendTimes >= 1.5f) {
-        String t = timesText(st.trendTimes) + " tu media";
+        String t = timesText(st.trendTimes) + TR(" tu media", " your average");
         text(x, 200, t, C_UP);
         x += width(t);
     }
     if (st.trendEngagement >= 0) {
-        String e = String(st.trendEngagement, 1);
-        e.replace(".", ",");
-        text(x, 200, (x > 16 ? "  ·  " : "") + e + " % interacción", C_MUTED);
+        String e = decimal(st.trendEngagement);
+        text(x, 200, (x > 16 ? "  ·  " : "") + e + TR(" % interacción", " % engagement"), C_MUTED);
     }
-    if (!(learned & L_VIDEOS)) hint("Toca el título: tus 10 últimos vídeos");
+    if (!(learned & L_VIDEOS)) hint(TR("Toca el título: tus 10 últimos vídeos", "Tap the title: your 10 latest videos"));
 }
 
 static const char *const WEEKDAY_SHORT[] = {"J", "V", "S", "D", "L", "M", "X"};  // el día 0 (1-1-1970) fue jueves
+static const char *const WEEKDAY_SHORT_EN[] = {"T", "F", "S", "S", "M", "T", "W"};
 static int weekday(int32_t day) { return ((day % 7) + 7) % 7; }
 
 // Vistas de los 14 últimos días en barras entre top y bottom, con la inicial
@@ -523,7 +532,8 @@ static void bars(int32_t today, const int64_t *days, int64_t peak, int top, int 
     for (int i = 0; i < N; i++) {
         int x = x0 + i * slot;
         bool hi = selected < 0 ? i == N - 1 : i == selected;
-        text(x + barW / 2, bottom + 20, WEEKDAY_SHORT[weekday(today - (N - 1 - i))], hi ? C_TEXT : C_MUTED, 1);
+        int wd = weekday(today - (N - 1 - i));
+        text(x + barW / 2, bottom + 20, TR(WEEKDAY_SHORT[wd], WEEKDAY_SHORT_EN[wd]), hi ? C_TEXT : C_MUTED, 1);
         zone(x - (slot - barW) / 2, top - 12, slot, bottom - top + 40, TOUCH_DAY, i);
         if (days[i] < 0) continue;
         int h = (int)((bottom - top) * days[i] / peak);
@@ -557,16 +567,16 @@ static void drawChart(int32_t today)
     int64_t days[14], peak;
     int valid = dailyViews(today, days, peak);
     font(FontLabel);
-    text(16, 66, "VISTAS POR DÍA", C_MUTED);
+    text(16, 66, TR("VISTAS POR DÍA", "VIEWS PER DAY"), C_MUTED);
     if (valid < 2) {
         font(FontBody);
-        text(W / 2, 128, "El gráfico aparece tras", C_MUTED, 1);
-        text(W / 2, 152, "1-2 días de uso.", C_MUTED, 1);
+        text(W / 2, 128, TR("El gráfico aparece tras", "The chart shows up after"), C_MUTED, 1);
+        text(W / 2, 152, TR("1-2 días de uso.", "1-2 days of use."), C_MUTED, 1);
         return;
     }
-    text(W - 16, 66, "máx " + fmtCompact(peak), C_MUTED, 2);
+    text(W - 16, 66, TR("máx ", "max ") + fmtCompact(peak), C_MUTED, 2);
     bars(today, days, peak, 82, 176, -1);
-    if (!(learned & L_DAY)) hint("Toca una barra para ver ese día");
+    if (!(learned & L_DAY)) hint(TR("Toca una barra para ver ese día", "Tap a bar to see that day"));
 }
 
 void screenInit()
@@ -628,7 +638,7 @@ static void drawToast()
     font(FontLabel);
     text(24, y + 20, toastTitle, accent);
     font(FontSmall);
-    text(W - 20, y + 20, "ver  ›", C_MUTED, 2);
+    text(W - 20, y + 20, TR("ver  ›", "view  ›"), C_MUTED, 2);
     font(FontBody);
     text(24, y + 42, ellipsize(toastText, W - 48), C_TEXT);
     zone(8, y, W - 16, h, toastTarget, TOAST_ZONE);
@@ -720,19 +730,19 @@ void screenSetup(const char *apName)
     present([&] {
         logo(12, 9);
         font(FontLabel);
-        text(50, 26, "Configuración", C_TEXT);
+        text(50, 26, TR("Configuración", "Setup"), C_TEXT);
         box(0, 40, W, 1, C_LINE);
         qr(14, 56, 124, String("WIFI:T:nopass;S:") + apName + ";;");
         font(FontBody);
-        text(152, 76, "1. Escanea el QR o", C_TEXT);
-        text(152, 99, "conecta el móvil a", C_TEXT);
+        text(152, 76, TR("1. Escanea el QR o", "1. Scan the QR or"), C_TEXT);
+        text(152, 99, TR("conecta el móvil a", "join your phone to"), C_TEXT);
         font(FontStrong);
         text(152, 128, ellipsize(apName, W - 160), C_RED);
         font(FontBody);
-        text(152, 160, "2. Sigue los pasos", C_TEXT);
-        text(152, 183, "que aparecen.", C_TEXT);
+        text(152, 160, TR("2. Sigue los pasos", "2. Follow the steps"), C_TEXT);
+        text(152, 183, TR("que aparecen.", "that appear."), C_TEXT);
         font(FontSmall);
-        text(14, 222, "Si no se abre solo, entra en 192.168.4.1", C_MUTED);
+        text(14, 222, TR("Si no se abre solo, entra en 192.168.4.1", "If nothing opens, go to 192.168.4.1"), C_MUTED);
     });
 }
 
@@ -741,20 +751,20 @@ void screenInfo(const String &host, const String &ip)
     present([&] {
         logo(12, 9);
         font(FontLabel);
-        text(50, 26, "Ajustes", C_TEXT);
+        text(50, 26, TR("Ajustes", "Settings"), C_TEXT);
         box(0, 40, W, 1, C_LINE);
         qr(14, 56, 124, "http://" + ip + "/");
         font(FontBody);
-        text(152, 76, "Escanea el QR o", C_TEXT);
-        text(152, 99, "abre en el móvil:", C_TEXT);
+        text(152, 76, TR("Escanea el QR o", "Scan the QR"), C_TEXT);
+        text(152, 99, TR("abre en el móvil:", "or open:"), C_TEXT);
         font(FontLabel);
         text(152, 130, ellipsize(host + ".local", W - 160), C_TEXT);
         font(FontSmall);
-        text(152, 154, "o bien:", C_MUTED);
+        text(152, 154, TR("o bien:", "or:"), C_MUTED);
         font(FontLabel);
         text(152, 178, ip, C_TEXT);
         font(FontSmall);
-        text(14, 222, "Toca la pantalla para ver los datos", C_MUTED);
+        text(14, 222, TR("Toca la pantalla para ver los datos", "Tap the screen to see your stats"), C_MUTED);
     });
 }
 
@@ -949,10 +959,10 @@ static void centeredMessage(const String &msg)
 void screenComments(const ChannelStats &st, const VideoComment *c, int count, int first, time_t now, const String &status)
 {
     present([&] {
-        String title = st.videoComments >= 0 ? fmtInt(st.videoComments) + " comentarios" : String("Comentarios");
+        String title = st.videoComments >= 0 ? fmtInt(st.videoComments) + TR(" comentarios", " comments") : String(TR("Comentarios", "Comments"));
         int last = first + COMMENTS_PER_SCREEN < count ? first + COMMENTS_PER_SCREEN : count;
         String right = count > COMMENTS_PER_SCREEN && !status.length()
-                           ? String(first + 1) + "-" + String(last) + " de " + String(count) + "  ›"
+                           ? String(first + 1) + "-" + String(last) + TR(" de ", " of ") + String(count) + "  ›"
                            : String("");
         detailHeader(title, right);
         if (status.length()) {
@@ -965,8 +975,8 @@ void screenComments(const ChannelStats &st, const VideoComment *c, int count, in
             if (i > first) box(16, y - 3, W - 32, 1, C_LINE);
             font(FontSmall);
             String meta = fmtAgoShort(vc.published, now);
-            if (vc.likes > 0) meta = fmtCompact(vc.likes) + " me gusta · " + meta;
-            if (vc.replies > 0) meta = String(vc.replies) + (vc.replies == 1 ? " resp. · " : " resp. · ") + meta;
+            if (vc.likes > 0) meta = fmtCompact(vc.likes) + TR(" me gusta · ", " likes · ") + meta;
+            if (vc.replies > 0) meta = String(vc.replies) + TR(" resp. · ", " repl. · ") + meta;
             int mw = width(meta);
             text(W - 16, y + 20, meta, C_MUTED, 2);
             font(FontLabel);
@@ -1000,8 +1010,8 @@ void screenVideos(const VideoSummary *v, int count, int first, bool byGrowth, ti
     if (byGrowth) std::stable_sort(order, order + count, [&](int a, int b) { return gain[a] > gain[b]; });
     present([&] {
         int last = first + VIDEOS_PER_SCREEN < count ? first + VIDEOS_PER_SCREEN : count;
-        String right = byGrowth ? "más crecen  ›" : "recientes  ›";
-        detailHeader("Tus vídeos", status.length() ? String("") : right);
+        String right = byGrowth ? TR("más crecen  ›", "growing  ›") : TR("recientes  ›", "recent  ›");
+        detailHeader(TR("Tus vídeos", "Your videos"), status.length() ? String("") : right);
         if (status.length()) {
             centeredMessage(status);
             return;
@@ -1022,7 +1032,7 @@ void screenVideos(const VideoSummary *v, int count, int first, bool byGrowth, ti
             // Segunda línea: vistas · lo ganado (verde) · interacción
             font(FontSmall);
             int x = 16;
-            String views = fmtCompact(vs.views) + " vistas";
+            String views = fmtCompact(vs.views) + TR(" vistas", " views");
             text(x, y + 39, views, C_MUTED);
             x += width(views);
             int64_t g = gain[order[r]];
@@ -1033,14 +1043,12 @@ void screenVideos(const VideoSummary *v, int count, int first, bool byGrowth, ti
             }
             float e = trendsEngagement(vs);
             if (e >= 0) {
-                String et = String(e, 1);
-                et.replace(".", ",");
-                text(x, y + 39, "  ·  " + et + " %", C_MUTED);
+                text(x, y + 39, "  ·  " + decimal(e) + " %", C_MUTED);
             }
         }
         if (count > VIDEOS_PER_SCREEN) {
             font(FontSmall);
-            text(W - 16, 236, String(first + 1) + "-" + String(last) + " de " + String(count) + "  ›", C_MUTED, 2);
+            text(W - 16, 236, String(first + 1) + "-" + String(last) + TR(" de ", " of ") + String(count) + "  ›", C_MUTED, 2);
             zone(0, 42, W, H - 42, TOUCH_MORE, last < count ? last : 0);
         }
     });
@@ -1049,34 +1057,38 @@ void screenVideos(const VideoSummary *v, int count, int first, bool byGrowth, ti
 static const char *const WEEKDAY_NAME[] = {"Jueves", "Viernes", "Sábado", "Domingo", "Lunes", "Martes", "Miércoles"};
 static const char *const MONTH_NAME[] = {"enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
                                          "agosto", "septiembre", "octubre", "noviembre", "diciembre"};
+static const char *const WEEKDAY_NAME_EN[] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"};
+static const char *const MONTH_NAME_EN[] = {"January", "February", "March", "April", "May", "June", "July",
+                                            "August", "September", "October", "November", "December"};
 
 void screenDay(int32_t today, int index)
 {
     present([&] {
-        detailHeader("Vistas por día");
+        detailHeader(TR("Vistas por día", "Views per day"));
         int64_t days[14], peak;
         dailyViews(today, days, peak);
         int32_t day = today - (13 - index);
         time_t t = (time_t)day * 86400;
         struct tm tm;
         gmtime_r(&t, &tm);
-        String when = index == 13 ? String("Hoy, hasta ahora")
-                      : index == 12 ? String("Ayer")
-                                    : String(WEEKDAY_NAME[weekday(day)]);
-        when += " · " + String(tm.tm_mday) + " de " + MONTH_NAME[tm.tm_mon];
+        String when = index == 13 ? String(TR("Hoy, hasta ahora", "Today, so far"))
+                      : index == 12 ? String(TR("Ayer", "Yesterday"))
+                                    : String(TR(WEEKDAY_NAME[weekday(day)], WEEKDAY_NAME_EN[weekday(day)]));
+        when += langEn() ? " · " + String(MONTH_NAME_EN[tm.tm_mon]) + " " + String(tm.tm_mday)
+                         : " · " + String(tm.tm_mday) + " de " + MONTH_NAME[tm.tm_mon];
         font(FontLabel);
         text(16, 66, when, C_MUTED);
         int64_t v = days[index];
         if (v < 0) {
             font(FontBody);
-            text(16, 102, "Sin datos de ese día", C_MUTED);
+            text(16, 102, TR("Sin datos de ese día", "No data for that day"), C_MUTED);
         } else {
             font(FontValue);
             String value = fmtInt(v);
             text(16, 106, value, C_TEXT);
             int vx = 16 + width(value) + 10;
             font(FontBody);
-            text(vx, 86, "vistas", C_MUTED);
+            text(vx, 86, TR("vistas", "views"), C_MUTED);
             // Comparación con la media de los días completos (sin hoy)
             int64_t sum = 0;
             int n = 0;
@@ -1087,9 +1099,9 @@ void screenDay(int32_t today, int index)
                 }
             if (index != 13 && n >= 2 && sum > 0) {
                 long pct = lround(100.0 * v * n / sum) - 100;
-                String cmp = pct == 0 ? String("en la media")
-                             : pct > 0 ? "+" + String(pct) + " % sobre la media"
-                                       : String(pct) + " % bajo la media";
+                String cmp = pct == 0 ? String(TR("en la media", "about average"))
+                             : pct > 0 ? "+" + String(pct) + TR(" % sobre la media", " % above average")
+                                       : String(pct) + TR(" % bajo la media", " % below average");
                 font(FontSmall);
                 if (vx + width(cmp) > W - 12) cmp = (pct > 0 ? "+" : "") + String(pct) + " %";  // cifras muy largas
                 text(vx, 106, cmp, pct > 0 ? C_UP : pct < 0 ? C_DOWN : C_MUTED);
@@ -1102,7 +1114,7 @@ void screenDay(int32_t today, int index)
 void screenSubscriberHistory(const ChannelStats &st, int32_t today)
 {
     present([&] {
-        detailHeader("Suscriptores · 30 días");
+        detailHeader(TR("Suscriptores · 30 días", "Subscribers · 30 days"));
         const int N = 30;
         int64_t v[N];
         historySubscribers(today, N, v);
@@ -1120,7 +1132,7 @@ void screenSubscriberHistory(const ChannelStats &st, int32_t today)
             valid++;
         }
         if (valid < 2) {
-            centeredMessage("La evolución aparece tras unos días de uso.");
+            centeredMessage(TR("La evolución aparece tras unos días de uso.", "The trend shows up after a few days of use."));
             return;
         }
         font(FontValue);
@@ -1129,8 +1141,8 @@ void screenSubscriberHistory(const ChannelStats &st, int32_t today)
         while (v[last] < 0) last--;
         int64_t delta = v[last] - v[first];
         int span = last - first;
-        String d = (delta > 0 ? "+" : delta < 0 ? "-" : "") + fmtCompact(delta < 0 ? -delta : delta) + " en " +
-                   String(span) + (span == 1 ? " día" : " días");
+        String d = (delta > 0 ? "+" : delta < 0 ? "-" : "") + fmtCompact(delta < 0 ? -delta : delta) + TR(" en ", " in ") +
+                   String(span) + (span == 1 ? TR(" día", " day") : TR(" días", " days"));
         font(FontSmall);
         text(W - 16, 96, d, delta > 0 ? C_UP : delta < 0 ? C_DOWN : C_MUTED, 2);
 
@@ -1156,8 +1168,8 @@ void screenSubscriberHistory(const ChannelStats &st, int32_t today)
         cv->fillSmoothCircle(px(last), py(v[last]) - oy, 4, C_RED);
         box(left, bottom + 1, right - left, 1, C_LINE);
         font(FontSmall);
-        text(left, 214, "hace " + String(N - 1) + " d", C_MUTED);
-        text(right, 214, "hoy", C_MUTED, 2);
+        text(left, 214, langEn() ? String(N - 1) + " d ago" : "hace " + String(N - 1) + " d", C_MUTED);
+        text(right, 214, TR("hoy", "today"), C_MUTED, 2);
     });
 }
 
@@ -1215,7 +1227,7 @@ void screenCelebrate(const String &value, const String &what)
     present([&] {
         roundBox(CARD_X, CARD_Y, CARD_W, CARD_H, 16, C_PANEL);
         font(FontStrong);
-        text(W / 2, 98, "¡Enhorabuena!", C_TEXT, 1);
+        text(W / 2, 98, TR("¡Enhorabuena!", "Congratulations!"), C_TEXT, 1);
         bigNumber(140, value, value, CARD_W - 28);
         font(FontStrong);
         text(W / 2, 196, what, C_RED, 1);

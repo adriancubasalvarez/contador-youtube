@@ -7,6 +7,7 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include "format.h"
+#include "lang.h"
 #include "provision.h"
 
 // Ranura microSD de la Freenove FNK0114F (esquema oficial): bus VSPI
@@ -45,7 +46,7 @@ static String sizeText(uint64_t bytes)
 {
     if (bytes >= 1000000000ULL) {
         String s = String(bytes / 1e9, 1);
-        s.replace(".", ",");
+        if (!langEn()) s.replace(".", ",");
         return s + " GB";
     }
     if (bytes >= 1000000) return String((unsigned long)(bytes / 1000000)) + " MB";
@@ -55,10 +56,10 @@ static String sizeText(uint64_t bytes)
 String sdDescribe()
 {
     if (!mounted) return "";
-    String s = sizeText(SD.totalBytes() - SD.usedBytes()) + " libres de " + sizeText(SD.totalBytes());
+    String s = sizeText(SD.totalBytes() - SD.usedBytes()) + TR(" libres de ", " free of ") + sizeText(SD.totalBytes());
     File h = SD.open(HISTORY);
     if (h) {
-        s += " · historial " + sizeText(h.size());
+        s += TR(" · historial ", " · history ") + sizeText(h.size());
         h.close();
     }
     return s;
@@ -85,30 +86,32 @@ bool sdApplyConfig(Settings &s, String &summary)
     if (!mounted || !SD.exists(CONFIG)) return false;
     File f = SD.open(CONFIG);
     if (!f) return false;
-    String ssid, pass, channel, apiKey, lines;
+    String ssid, pass, channel, apiKey, language, lines;
     bool havePass = false;
     while (f.available()) {
         String line = f.readStringUntil('\n'), key, value;
         line.replace("\r", "");
         parseLine(line, key, value);
         if (key == "wifi") ssid = value;
-        else if (key == "contrasena" || key == "contraseña") {
+        else if (key == "contrasena" || key == "contraseña" || key == "password") {
             pass = value;
             havePass = true;
             line = key + "=********";  // no queda en la tarjeta
-        } else if (key == "canal") channel = value;
-        else if (key == "clave_api") apiKey = value;
+        } else if (key == "canal" || key == "channel") channel = value;
+        else if (key == "clave_api" || key == "api_key") apiKey = value;
+        else if (key == "idioma" || key == "language") language = value;
         lines += line + "\n";
     }
     f.close();
 
-    provisionApply(s, ssid, pass, havePass, channel, apiKey, summary);
+    provisionApply(s, ssid, pass, havePass, channel, apiKey, language, summary);
 
     // Se renombra para no volver a aplicarlo en cada arranque
     SD.remove(CONFIG_DONE);
     File done = SD.open(CONFIG_DONE, FILE_WRITE);
     if (done) {
-        done.print("# Ya aplicado. Para cambiar algo, edítalo y vuelve a llamarlo config.txt\n");
+        done.print(TR("# Ya aplicado. Para cambiar algo, edítalo y vuelve a llamarlo config.txt\n",
+                      "# Already applied. To change something, edit it and rename it back to config.txt\n"));
         done.print(lines);
         done.close();
     }

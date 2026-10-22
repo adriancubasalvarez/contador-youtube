@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include "lang.h"
 #include "screen.h"
 #include "version.h"
 
@@ -10,25 +11,30 @@
 #define SERIAL_WINDOW_MS 1200  // lo que espera al arrancar; cada orden recibida lo alarga
 
 void provisionApply(Settings &s, const String &ssid, const String &pass, bool havePass, const String &channel,
-                    const String &apiKey, String &summary)
+                    const String &apiKey, const String &language, String &summary)
 {
     summary = "";
+    int lang = langParse(language);
+    if (lang >= 0 && lang != s.lang) {
+        s.lang = g_lang = lang;  // ya, para que el resumen y la pantalla salgan en ese idioma
+        summary += TR("idioma español", "English language");
+    }
     if (ssid.length()) {
         WiFi.mode(WIFI_STA);
         WiFi.persistent(true);
         WiFi.begin(ssid.c_str(), havePass && pass.length() ? pass.c_str() : nullptr);  // queda guardada
-        summary += "WiFi «" + ssid + "»";
+        summary += String(summary.length() ? ", " : "") + "WiFi «" + ssid + "»";
     }
     if (channel.length() && channel != s.channelInput) {
         s.channelInput = channel;
-        summary += String(summary.length() ? ", " : "") + "canal " + channel;
+        summary += String(summary.length() ? ", " : "") + TR("canal ", "channel ") + channel;
     }
     if (apiKey.length() && apiKey != s.apiKey) {
         s.apiKey = apiKey;
-        summary += String(summary.length() ? ", " : "") + "clave de API";
+        summary += String(summary.length() ? ", " : "") + TR("clave de API", "API key");
     }
     settingsSave(s);
-    if (!summary.length()) summary = "sin cambios";
+    if (!summary.length()) summary = TR("sin cambios", "no changes");
 }
 
 static String savedSsid()
@@ -47,6 +53,7 @@ static void sendInfo(const Settings &s)
     d["canal"] = s.channelInput;
     d["wifi"] = savedSsid();
     d["clave"] = s.effectiveApiKey().length() > 0;  // solo si hay, nunca la clave
+    d["idioma"] = s.lang == LANG_EN ? "en" : "es";
     Serial.print("INFO ");
     serializeJson(d, Serial);
     Serial.println();
@@ -77,11 +84,12 @@ bool provisionSerial(Settings &s)
                 } else {
                     String summary;
                     provisionApply(s, d["wifi"] | "", d["contrasena"] | "", d["contrasena"].is<const char *>(),
-                                   d["canal"] | "", d["clave"] | "", summary);
+                                   d["canal"] | "", d["clave"] | "", d["idioma"] | "", summary);
                     configured = true;
                     Serial.print("CONFIG OK ");
                     Serial.println(summary);  // sin la contraseña
-                    screenMessage("Configuración recibida", "Por el cable USB: " + summary + ".", "Conectando...");
+                    screenMessage(TR("Configuración recibida", "Settings received"), TR("Por el cable USB: ", "Over the USB cable: ") + summary + ".",
+                                  TR("Conectando...", "Connecting..."));
                     until = millis() + 300;  // ya está: sigue arrancando
                 }
             }
@@ -94,7 +102,7 @@ bool provisionSerial(Settings &s)
 
 #else
 
-void provisionApply(Settings &, const String &, const String &, bool, const String &, const String &, String &) {}
+void provisionApply(Settings &, const String &, const String &, bool, const String &, const String &, const String &, String &) {}
 bool provisionSerial(Settings &) { return false; }
 
 #endif

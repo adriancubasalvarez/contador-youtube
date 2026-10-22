@@ -7,201 +7,12 @@ CYD (tools/cyd_preview + cyd_screens.py), capturas del instalador
 (installer_screens.py), conexiones (wiring.py) y capturas de Google Cloud.
 """
 import sys
-from pathlib import Path
 
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import cm, mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (
-    CondPageBreak, Flowable, Image, KeepTogether, PageBreak, Paragraph, Preformatted,
-    SimpleDocTemplate, Spacer, Table, TableStyle,
-)
+from manual_common import *  # noqa: F401,F403  estilos y utilidades
+from reportlab.lib.units import cm
+from reportlab.platypus import CondPageBreak, PageBreak, SimpleDocTemplate, Spacer, Table, TableStyle
 
-HERE = Path(__file__).resolve().parent
-PROJECT = HERE.parent.parent
-DOCS = PROJECT / "docs"
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else DOCS / "manual-contador-youtube.pdf"
-
-for name, file in [("Fira", "FiraSans-Regular"), ("Fira-Semi", "FiraSans-SemiBold"),
-                   ("Fira-Bold", "FiraSans-Bold"), ("Mono", "FiraMono-Regular")]:
-    pdfmetrics.registerFont(TTFont(name, str(HERE / "fonts" / f"{file}.ttf")))
-pdfmetrics.registerFontFamily("Fira", normal="Fira", bold="Fira-Bold", italic="Fira", boldItalic="Fira-Bold")
-
-RED = colors.HexColor("#d92b2b")
-INK = colors.HexColor("#1b1b1b")
-MUTED = colors.HexColor("#6b6b6b")
-LINE = colors.HexColor("#e2e2de")
-TIP_BG = colors.HexColor("#fff6d6")
-WARN_BG = colors.HexColor("#fde8e8")
-PHOTO_BG = colors.HexColor("#e6f1fd")
-CODE_BG = colors.HexColor("#f2f2ef")
-
-PAGE_W, PAGE_H = A4
-MARGIN = 2 * cm
-CONTENT_W = PAGE_W - 2 * MARGIN
-
-st = {
-    "body": ParagraphStyle("body", fontName="Fira", fontSize=10.5, leading=15.5, textColor=INK, spaceAfter=6),
-    "small": ParagraphStyle("small", fontName="Fira", fontSize=9, leading=12.5, textColor=MUTED),
-    "cell": ParagraphStyle("cell", fontName="Fira", fontSize=9.5, leading=13, textColor=INK),
-    "cellb": ParagraphStyle("cellb", fontName="Fira-Semi", fontSize=9.5, leading=13, textColor=INK),
-    "h1": ParagraphStyle("h1", fontName="Fira-Bold", fontSize=22, leading=27, textColor=INK, spaceBefore=4,
-                         spaceAfter=10),
-    "h2": ParagraphStyle("h2", fontName="Fira-Bold", fontSize=13.5, leading=18, textColor=INK, spaceBefore=12,
-                         spaceAfter=6, keepWithNext=1),
-    "kicker": ParagraphStyle("kicker", fontName="Fira-Semi", fontSize=10, leading=13, textColor=RED),
-    "step": ParagraphStyle("step", fontName="Fira", fontSize=10.5, leading=15, textColor=INK, leftIndent=18,
-                           firstLineIndent=-18, spaceAfter=5),
-    "cover_title": ParagraphStyle("ct", fontName="Fira-Bold", fontSize=34, leading=40, textColor=INK),
-    "cover_sub": ParagraphStyle("cs", fontName="Fira", fontSize=15, leading=21, textColor=MUTED),
-    "caption": ParagraphStyle("cap", fontName="Fira", fontSize=8.5, leading=11, textColor=MUTED,
-                              alignment=TA_CENTER, spaceBefore=3, spaceAfter=10),
-}
-
-
-# ------------------------------------------------------------- utilidades ---
-
-def P(text, style="body"):
-    return Paragraph(text, st[style])
-
-
-def code(s):
-    return f'<font name="Mono" size="9.5">{s}</font>'
-
-
-def steps(*items, start=1):
-    return [P(f"<b>{i}.</b>&nbsp;&nbsp;{t}", "step") for i, t in enumerate(items, start)]
-
-
-def bullets(*items):
-    return [P(f"•&nbsp;&nbsp;{t}", "step") for t in items]
-
-
-def box(title, items, bg, accent):
-    content = [P(f"<b>{title}</b>", "cellb")] + [P(t, "cell") for t in items]
-    t = Table([[content]], colWidths=[CONTENT_W])
-    t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), bg),
-        ("LINEBEFORE", (0, 0), (0, -1), 3, accent),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12), ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
-    ]))
-    return KeepTogether([Spacer(1, 4), t, Spacer(1, 8)])
-
-
-def tip(*items):
-    return box("Consejo", items, TIP_BG, colors.HexColor("#e0a800"))
-
-
-def warn(*items):
-    return box("Atención", items, WARN_BG, RED)
-
-
-def photo(*items):
-    return box("Para el Instructable: fotos de este paso", items, PHOTO_BG, colors.HexColor("#1f7ae0"))
-
-
-def codeblock(text):
-    pre = Preformatted(text, ParagraphStyle("code", fontName="Mono", fontSize=9.5, leading=13.5, textColor=INK))
-    t = Table([[pre]], colWidths=[CONTENT_W])
-    t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), CODE_BG),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12), ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-    ]))
-    return KeepTogether([Spacer(1, 2), t, Spacer(1, 8)])
-
-
-def table(rows, widths, header=True, style="cell"):
-    data = [[P(c, "cellb" if header and r == 0 else style) if isinstance(c, str) else c for c in row]
-            for r, row in enumerate(rows)]
-    t = Table(data, colWidths=widths, repeatRows=1 if header else 0)
-    cmds = [
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LINEBELOW", (0, 0), (-1, -1), 0.5, LINE),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]
-    if header:
-        cmds += [("LINEBELOW", (0, 0), (-1, 0), 1.2, INK)]
-    t.setStyle(TableStyle(cmds))
-    return t
-
-
-def picture(name, width):
-    img = Image(str(DOCS / name))
-    img.drawWidth, img.drawHeight = width, width * img.imageHeight / img.imageWidth
-    return img
-
-
-def image(name, width, caption=None):
-    items = [picture(name, width)]
-    if caption:
-        items.append(P(caption, "caption"))
-    return KeepTogether(items)
-
-
-def step_title(number, title, time=None):
-    kicker = f"PASO {number}" + (f"  ·  {time}" if time else "")
-    return [CondPageBreak(9 * cm), P(kicker, "kicker"), P(title, "h1")]
-
-
-class CheckBox(Flowable):
-    def __init__(self, size=10):
-        super().__init__()
-        self.size = size
-        self.width = self.height = size
-
-    def draw(self):
-        self.canv.setStrokeColor(INK)
-        self.canv.setLineWidth(0.8)
-        self.canv.rect(0, 0, self.size, self.size)
-
-
-def on_page(canvas, doc):
-    if doc.page == 1:
-        return
-    canvas.saveState()
-    canvas.setFont("Fira", 8.5)
-    canvas.setFillColor(MUTED)
-    canvas.drawString(MARGIN, 1.2 * cm, "Contador de YouTube de escritorio · manual de montaje y uso")
-    canvas.drawRightString(PAGE_W - MARGIN, 1.2 * cm, str(doc.page))
-    canvas.setStrokeColor(LINE)
-    canvas.line(MARGIN, 1.55 * cm, PAGE_W - MARGIN, 1.55 * cm)
-    canvas.restoreState()
-
-
-def grid(names, width, cols=2, captions=None):
-    """Varias imágenes en rejilla, con pie opcional bajo cada una."""
-    cells = []
-    for i, n in enumerate(names):
-        cell = [picture(n, width)]
-        if captions:
-            cell.append(P(captions[i], "caption"))
-        cells.append(cell)
-    rows = [cells[i:i + cols] for i in range(0, len(cells), cols)]
-    if len(rows[-1]) < cols:
-        rows[-1] += [""] * (cols - len(rows[-1]))
-    t = Table(rows, colWidths=[CONTENT_W / cols] * cols)
-    t.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER"), ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                           ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
-    return t
-
-
-def side(img_name, img_width, flowables):
-    """Imagen a la izquierda y texto a la derecha."""
-    t = Table([[picture(img_name, img_width), flowables]], colWidths=[img_width + 0.6 * cm, CONTENT_W - img_width - 0.6 * cm])
-    t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
-    return KeepTogether([t, Spacer(1, 6)])
-
-
-def badge(text):
-    return f'<font name="Fira-Semi" color="#d92b2b">{text}</font>'
-
 
 TACTIL = badge("PANTALLA TÁCTIL")
 
@@ -231,7 +42,8 @@ facts.setStyle(TableStyle([
     ("TOPPADDING", (0, 0), (-1, -1), 10), ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
 ]))
 story += [facts, Spacer(1, 1 * cm),
-          P("Versión 2.0 del manual · octubre de 2026 · firmware 1.5.0 · sketch <b>ContadorYouTube</b>", "small"),
+          P("Versión 2.1 del manual · octubre de 2026 · firmware 1.6.0 · sketch <b>ContadorYouTube</b> · "
+            "<i>English manual: manual-youtube-counter.pdf</i>", "small"),
           P("© 2026 Adrian Cubas. Manual con licencia CC BY-NC 4.0; código y firmware con licencia PolyForm "
             "Noncommercial 1.0.0: puedes montarlo, modificarlo y compartirlo sin fines comerciales. Para "
             "venderlo, pide permiso al autor. Detalles en el anexo A.", "small"),
@@ -275,6 +87,7 @@ story += [P("Qué vas a construir", "h1"),
               ["Al tocar", "Comentarios, tus 10 últimos vídeos, vistas de un día, suscriptores en 30 días", "—"],
               ["Avisos", "Efectos en pantalla, LED de color y sonido", "—"],
               ["Extras", "Tarjeta microSD (historial, sonidos, configuración), batería", "—"],
+              ["Idioma", "Español o inglés (pantalla, ajustes y avisos)", "Español o inglés"],
           ], [3 * cm, (CONTENT_W - 3 * cm) / 2, (CONTENT_W - 3 * cm) / 2]),
           Spacer(1, 10),
           grid(["img/cyd-1_suscriptores.png", "img/cyd-2_vistas.png", "img/cyd-3_video.png", "img/cyd-4_grafico.png"],
@@ -397,7 +210,9 @@ story += [P("El instalador lo hace todo por el cable USB: graba el programa en l
                  "<b>Ejecutar de todas formas</b>. Sale porque el instalador aún no está firmado con un "
                  "certificado de empresa."),
           warn("Ejecuta solo el instalador descargado de la página oficial del proyecto."),
-          *steps("<b>Elige tu modelo</b> (pantalla táctil u OLED) y pulsa <b>Siguiente</b>.", start=3),
+          *steps("<b>Elige tu modelo</b> (pantalla táctil u OLED) y pulsa <b>Siguiente</b>. Arriba a la derecha "
+                 "puedes cambiar el idioma del instalador (<b>Español</b> o <b>English</b>); sale en el de tu "
+                 "Windows.", start=3),
           image("img/instalador-1_placa.png", IW),
           *steps("<b>Conecta el contador</b> al ordenador con el cable USB. La ventana lo detecta sola y dice "
                  "«Placa lista en COM…». Pulsa <b>Instalar el contador</b>.", start=4),
@@ -410,7 +225,8 @@ story += [P("El instalador lo hace todo por el cable USB: graba el programa en l
           image("img/instalador-3_grabando.png", IW),
           *steps("<b>Rellena tus datos</b>: elige tu red WiFi (tiene que ser de 2,4 GHz; si tu ordenador está en "
                  "la de 5 GHz, la lista propone la otra), su contraseña, tu canal (el @nombre de YouTube o el "
-                 "enlace) y la clave del paso 1. Pulsa <b>Comprobar y enviar</b>.", start=6),
+                 "enlace), la clave del paso 1 y el <b>idioma del contador</b> (español o inglés). Pulsa "
+                 "<b>Comprobar y enviar</b>.", start=6),
           image("img/instalador-4_configurar.png", IW),
           P("El instalador consulta YouTube desde tu ordenador antes de enviar nada: si la clave o el canal "
             "están mal, te dice qué pasa (clave mal copiada, API sin habilitar, canal que no existe…)."),
@@ -497,7 +313,8 @@ story += [P("Si lo instalaste con el instalador de Windows, ya está configurado
               *steps("Conéctate a la red WiFi abierta <b>YT-Dashboard</b>. En la pantalla táctil basta con "
                      "<b>escanear el código QR</b> con la cámara del móvil.",
                      "Se abre sola la página de configuración. Si no, entra en <b>192.168.4.1</b>.",
-                     "Elige tu WiFi, escribe su contraseña, tu canal (@nombre) y pega tu clave del paso 1.",
+                     "Elige el idioma (<b>Idioma · Language</b>), tu WiFi, su contraseña, tu canal (@nombre) y "
+                     "pega tu clave del paso 1.",
                      "Pulsa <b>Guardar</b>. El contador se conecta y en unos segundos muestra tus datos."),
           ]),
           warn("Escribe <b>siempre</b> la contraseña de la WiFi: la página no la recuerda.",
@@ -506,7 +323,8 @@ story += [P("Si lo instalaste con el instalador de Windows, ya está configurado
           P("Útil para regalarlo ya preparado o configurarlo sin móvil:"),
           *steps("En el ordenador, crea en la raíz de la tarjeta un archivo de texto llamado <b>config.txt</b> "
                  "(el proyecto trae uno de ejemplo en <b>tarjeta-sd/config.txt.ejemplo</b>) con:"),
-          codeblock("wifi=NombreDeTuWiFi\ncontrasena=ContraseñaDeTuWiFi\ncanal=@tucanal\nclave_api=AIza..."),
+          codeblock("wifi=NombreDeTuWiFi\ncontrasena=ContraseñaDeTuWiFi\ncanal=@tucanal\nclave_api=AIza...\n"
+                    "idioma=es        (o en, para inglés)"),
           *steps("Mete la tarjeta en el contador y enciéndelo. Muestra «Configuración desde la tarjeta» con lo "
                  "que ha aplicado.",
                  "El archivo pasa a llamarse <b>config_aplicada.txt</b> y la contraseña queda tapada, para que "
@@ -514,7 +332,8 @@ story += [P("Si lo instalaste con el instalador de Windows, ya está configurado
           P("3.3 · Cambiar la configuración más adelante", "h2"),
           table([
               ["Qué cambiar", "Cómo"],
-              ["El canal, la clave, el brillo, los avisos…", "En su página de ajustes (paso 8), sin tocar el aparato."],
+              ["El canal, la clave, el idioma, el brillo, los avisos…", "En su página de ajustes (paso 8), sin tocar "
+               "el aparato."],
               ["La red WiFi", "Mantén <b>BOOT</b> 3 segundos y repite el apartado 3.1; o en el instalador, "
                               "<b>Solo cambiar la configuración</b>; o con config.txt."],
           ], [5.5 * cm, CONTENT_W - 5.5 * cm])]
@@ -679,6 +498,7 @@ story += [P("El contador tiene su propia página de ajustes en tu red. No hace f
             "avisos, luz y tarjeta).", "caption"),
           table([
               ["Ajuste", "Valores"],
+              ["Idioma · Language", "Español o English: la pantalla y la página cambian al guardar"],
               ["Brillo · Cambiar de vista cada", "5-100 % · 3-60 s o «No cambiar»"],
               ["De noche", "De 0:00 a 7:00, brillo mínimo y (táctil) sin avisos"],
               ["Volumen · Destellos del LED", "0-100 % (0 = sin sonido) · sí/no"],
@@ -700,7 +520,7 @@ story += [P("El contador tiene su propia página de ajustes en tu red. No hace f
 # Paso 9 · actualizar
 story += step_title(9, "Actualizar el firmware", "2 min")
 story += [P("Cuando salga una versión nueva, se instala sin cable y sin perder la configuración. La versión "
-            "instalada aparece al pie de la página de ajustes (por ejemplo «Firmware 1.5.0 (cyd)»)."),
+            "instalada aparece al pie de la página de ajustes (por ejemplo «Firmware 1.6.0 (cyd)»)."),
           P("Desde la página de ajustes (los dos modelos)", "h2"),
           *steps("Descarga el archivo de tu modelo: <b>contador-cyd-v….bin</b> (pantalla táctil) o "
                  "<b>contador-oled-v….bin</b> (OLED). No uses el que termina en «-completo».",
@@ -739,6 +559,7 @@ tests = [
     ("Reinicio", "Desenchufar y volver a enchufar", "Se conecta solo, sin pedir nada"),
     ("Sin Internet", "Apagar el router 10 minutos", "Se marca que no está al día y se recupera solo"),
     ("Ajustes", "Abrir contador-xxxx.local y mover el brillo", "La pantalla cambia al momento"),
+    ("Idioma", "Elegir English en los ajustes y guardar", "La pantalla y la página pasan a inglés"),
     ("El que más crece", "Mirar esa vista una hora después de encenderlo", "Sale el vídeo que más vistas gana y cuántas"),
     ("(T) Toques", "Tocar comentarios, título, una barra y «+… en 7 días»", "Se abren los cuatro detalles"),
     ("(T) Pistas", "Usar una zona", "Su pista desaparece y no vuelve"),

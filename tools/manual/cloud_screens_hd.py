@@ -6,6 +6,7 @@ u otra clave (notificación, botón Habilitar y clave creada) se amplían x2 a
 partir de las originales.
 
     python tools/manual/cloud_screens_hd.py docs/capturas_raw docs/img
+    python tools/manual/cloud_screens_hd.py docs/capturas_raw docs/img-en en     (etiquetas en inglés)
 """
 import sys
 from pathlib import Path
@@ -16,12 +17,18 @@ src, out = Path(sys.argv[1]), Path(sys.argv[2])
 FONT = ImageFont.truetype(str(Path(__file__).parent / "fonts" / "FiraSans-Bold.ttf"), 28)
 RED = (217, 43, 43)
 
+# Con "en" como tercer argumento, las etiquetas en inglés (la consola sigue en español)
+EN = len(sys.argv) > 3 and sys.argv[3] == "en"
+EN_LABELS = {"Pulsa aquí": "Click here", "Crear": "Create", "Habilitar": "Enable", "Copiar": "Copy",
+             "Debe poner «Habilitada»": "Must say «Habilitada» (Enabled)"}
+
 
 def mark(img, box, label=None, at=None, width=6):
     d = ImageDraw.Draw(img)
     x0, y0, x1, y1 = box
     d.rounded_rectangle([x0 - 6, y0 - 6, x1 + 6, y1 + 6], 14, outline=RED, width=width)
     if label:
+        label = EN_LABELS.get(label, label) if EN else label
         lx, ly = at
         w = d.textlength(label, font=FONT)
         d.rounded_rectangle([lx - 12, ly - 8, lx + w + 12, ly + 36], 10, fill=RED)

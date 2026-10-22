@@ -2,6 +2,9 @@
 
 Esquema simplificado: solo se dibujan los 4 pines que se usan, alineados
 para que cada cable sea una línea recta.
+
+    python tools/manual/wiring.py docs/img/conexiones.png
+    python tools/manual/wiring.py docs/img-en/conexiones.png en
 """
 import sys
 from pathlib import Path
@@ -10,6 +13,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 FONTS = Path(__file__).parent / "fonts"
 out = sys.argv[1]
+EN = len(sys.argv) > 2 and sys.argv[2] == "en"
 
 S = 2  # escala para que quede nítido en el PDF
 W, H = 900 * S, 430 * S
@@ -30,7 +34,7 @@ def pin(cx, cy):
 
 
 # Placa ESP32
-d.text((210 * S, 34 * S), "Placa ESP32", font=f(20, "SemiBold"), fill="#222", anchor="mm")
+d.text((210 * S, 34 * S), "ESP32 board" if EN else "Placa ESP32", font=f(20, "SemiBold"), fill="#222", anchor="mm")
 box(40, 60, 380, 400, "#1d2a3a")
 box(130, 85, 290, 175, "#c9ced6", 6)
 d.text((210 * S, 130 * S), "ESP32-WROOM-32", font=f(15, "SemiBold"), fill="#1d2a3a", anchor="mm")
@@ -38,12 +42,12 @@ box(175, 380, 245, 412, "#9aa3ad", 6)
 d.text((120 * S, 396 * S), "USB-C", font=f(13), fill="#cfd6de", anchor="mm")
 
 # Pantalla OLED (pines dibujados en el lateral para simplificar)
-d.text((715 * S, 34 * S), "Pantalla OLED 0,96\"", font=f(20, "SemiBold"), fill="#222", anchor="mm")
+d.text((715 * S, 34 * S), "0.96\" OLED screen" if EN else "Pantalla OLED 0,96\"", font=f(20, "SemiBold"), fill="#222", anchor="mm")
 box(560, 60, 870, 400, "#0b2e5c")
 box(625, 110, 850, 350, "#05070a", 6)
-d.text((737 * S, 140 * S), "SUSCRIPTORES", font=f(15, "Bold"), fill="#ffd60a", anchor="mm")
+d.text((737 * S, 140 * S), "SUBSCRIBERS" if EN else "SUSCRIPTORES", font=f(15, "Bold"), fill="#ffd60a", anchor="mm")
 d.line([630 * S, 160 * S, 845 * S, 160 * S], fill="#0b2e5c", width=2 * S)
-d.text((737 * S, 250 * S), "128.400", font=f(40, "Bold"), fill="#46aaff", anchor="mm")
+d.text((737 * S, 250 * S), "128,400" if EN else "128.400", font=f(40, "Bold"), fill="#46aaff", anchor="mm")
 
 # (pin ESP32, pin OLED, color del cable, altura)
 wires = [

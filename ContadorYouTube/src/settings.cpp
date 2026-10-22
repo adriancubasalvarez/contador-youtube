@@ -1,5 +1,6 @@
 #include "settings.h"
 #include <Preferences.h>
+#include "lang.h"
 
 static const char *NS = "ytdash";
 
@@ -25,7 +26,10 @@ void settingsLoad(Settings &s)
     s.ledSpeed = p.getUChar("ledspeed", 1);
     s.ledOfflineBlink = p.getBool("ledoff", true);
     if (p.getBytesLength("ledbal") == 3) p.getBytes("ledbal", s.ledBalance, 3);
+    s.lang = p.getUChar("lang", LANG_ES);
     p.end();
+    if (s.lang > LANG_EN) s.lang = LANG_ES;
+    g_lang = s.lang;
     if (s.refreshMin < MIN_REFRESH_MIN) s.refreshMin = MIN_REFRESH_MIN;
     s.brightness = constrain(s.brightness, 5, 100);
     if (s.pageSeconds > 60) s.pageSeconds = 60;
@@ -57,7 +61,18 @@ void settingsSave(const Settings &s)
     p.putUChar("ledspeed", s.ledSpeed);
     p.putBool("ledoff", s.ledOfflineBlink);
     p.putBytes("ledbal", s.ledBalance, 3);
+    p.putUChar("lang", s.lang);
     p.end();
+    g_lang = s.lang;
+}
+
+int langParse(String text)
+{
+    text.trim();
+    text.toLowerCase();
+    if (text == "en" || text == "english" || text == "ingles" || text == "inglés") return LANG_EN;
+    if (text == "es" || text == "spanish" || text == "espanol" || text == "español") return LANG_ES;
+    return -1;
 }
 
 void settingsClear()

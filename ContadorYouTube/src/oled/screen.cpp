@@ -7,6 +7,7 @@
 #include <Wire.h>
 #include "../format.h"
 #include "../history.h"
+#include "../lang.h"
 
 // SSD1306 128x64 de dos colores: filas 0-15 amarillas (cabecera) y 16-63
 // azules (contenido).
@@ -140,10 +141,10 @@ void screenPage(Page page, const ChannelStats &st, int32_t today, time_t now, bo
         if (span > 0 && !st.subscribersHidden)
             right = (delta > 0 ? "+" : delta < 0 ? "-" : "") + fmtCompact(delta < 0 ? -delta : delta) + " " +
                     String(span) + "d";
-        header("SUSCRIPTORES", flag + right);
+        header(TR("SUSCRIPTORES", "SUBSCRIBERS"), flag + right);
         if (st.subscribersHidden) {
             oled.setFont(u8g2_font_helvR08_tf);
-            text(jx + 2, 44, "Contador oculto");
+            text(jx + 2, 44, TR("Contador oculto", "Count hidden"));
         } else {
             bigNumber(fmtInt(st.subscribers), fmtCompact(st.subscribers));
         }
@@ -152,15 +153,15 @@ void screenPage(Page page, const ChannelStats &st, int32_t today, time_t now, bo
     case PAGE_VIEWS: {
         int64_t todayViews[1];
         historyDailyViews(today, 1, todayViews);
-        header("VISTAS", flag + (todayViews[0] >= 0 ? "hoy +" + fmtCompact(todayViews[0]) : String("")));
+        header(TR("VISTAS", "VIEWS"), flag + (todayViews[0] >= 0 ? TR("hoy +", "today +") + fmtCompact(todayViews[0]) : String("")));
         bigNumber(fmtInt(st.views), fmtCompact(st.views));
         break;
     }
     case PAGE_VIDEO: {
-        header("ÚLTIMO VÍDEO", flag + fmtAgoShort(st.videoPublished, now));
+        header(TR("ÚLTIMO VÍDEO", "LATEST VIDEO"), flag + fmtAgoShort(st.videoPublished, now));
         oled.setFont(u8g2_font_helvR08_tf);
         if (!st.hasVideo) {
-            text(jx + 2, 44, "Sin vídeos públicos");
+            text(jx + 2, 44, TR("Sin vídeos públicos", "No public videos"));
             break;
         }
         String lines[2];
@@ -171,15 +172,15 @@ void screenPage(Page page, const ChannelStats &st, int32_t today, time_t now, bo
         int vw = width(views);
         text(jx + 1, 62, views);
         oled.setFont(u8g2_font_helvR08_tf);
-        text(jx + 1 + vw + 4, 62, "vistas");
+        text(jx + 1 + vw + 4, 62, TR("vistas", "views"));
         break;
     }
     case PAGE_TREND: {
-        header("EL QUE MÁS CRECE", flag + (st.hasTrend ? String(st.trendHours) + " h" : String("")));
+        header(TR("EL QUE MÁS CRECE", "FASTEST GROWING"), flag + (st.hasTrend ? String(st.trendHours) + " h" : String("")));
         oled.setFont(u8g2_font_helvR08_tf);
         if (!st.hasTrend) {
-            text(jx + 2, 36, "Compara tus 10 últimos");
-            text(jx + 2, 48, "vídeos: aparece en 1 hora.");
+            text(jx + 2, 36, TR("Compara tus 10 últimos", "Compares your 10 latest"));
+            text(jx + 2, 48, TR("vídeos: aparece en 1 hora.", "videos: ready in 1 hour."));
             break;
         }
         String lines[2];
@@ -191,8 +192,8 @@ void screenPage(Page page, const ChannelStats &st, int32_t today, time_t now, bo
         text(jx + 1, 62, gain);
         oled.setFont(u8g2_font_helvR08_tf);
         String times = String(st.trendTimes, 1);
-        times.replace(".", ",");
-        text(jx + 1 + gw + 4, 62, st.trendTimes >= 1.5f ? "x" + times + " tu media" : String("vistas"));
+        if (!langEn()) times.replace(".", ",");
+        text(jx + 1 + gw + 4, 62, st.trendTimes >= 1.5f ? "x" + times + TR(" tu media", " your avg") : String(TR("vistas", "views")));
         break;
     }
     case PAGE_CHART: {
@@ -206,11 +207,11 @@ void screenPage(Page page, const ChannelStats &st, int32_t today, time_t now, bo
                 valid++;
                 if (days[i] > peak) peak = days[i];
             }
-        header("VISTAS/DÍA", flag + (valid >= 2 ? "máx " + fmtCompact(peak) : String("14 d")));
+        header(TR("VISTAS/DÍA", "VIEWS/DAY"), flag + (valid >= 2 ? TR("máx ", "max ") + fmtCompact(peak) : String("14 d")));
         if (valid < 2) {
             oled.setFont(u8g2_font_helvR08_tf);
-            text(jx + 2, 36, "El gráfico aparece");
-            text(jx + 2, 48, "tras 1-2 días de uso.");
+            text(jx + 2, 36, TR("El gráfico aparece", "The chart shows up"));
+            text(jx + 2, 48, TR("tras 1-2 días de uso.", "after 1-2 days of use."));
             break;
         }
         if (peak == 0) peak = 1;
@@ -239,27 +240,27 @@ void screenPage(Page page, const ChannelStats &st, int32_t today, time_t now, bo
 void screenSetup(const char *apName)
 {
     oled.clearBuffer();
-    header("CONFIGURACIÓN", "");
+    header(TR("CONFIGURACIÓN", "SETUP"), "");
     oled.setFont(u8g2_font_helvR08_tf);
-    text(0, 27, "1. Conecta el móvil a:");
+    text(0, 27, TR("1. Conecta el móvil a:", "1. Join your phone to:"));
     oled.setFont(u8g2_font_helvB10_tf);
     text(8, 41, apName);
     oled.setFont(u8g2_font_helvR08_tf);
-    text(0, 52, "2. Sigue los pasos");
-    text(0, 63, "(o abre 192.168.4.1)");
+    text(0, 52, TR("2. Sigue los pasos", "2. Follow the steps"));
+    text(0, 63, TR("(o abre 192.168.4.1)", "(or open 192.168.4.1)"));
     oled.sendBuffer();
 }
 
 void screenInfo(const String &host, const String &ip)
 {
     oled.clearBuffer();
-    header("AJUSTES", "");
+    header(TR("AJUSTES", "SETTINGS"), "");
     oled.setFont(u8g2_font_helvR08_tf);
-    text(0, 27, "Abre en el navegador:");
+    text(0, 27, TR("Abre en el navegador:", "Open in your browser:"));
     oled.setFont(u8g2_font_helvB08_tf);
     text(0, 40, ellipsize(host + ".local", W));
     oled.setFont(u8g2_font_helvR08_tf);
-    text(0, 52, "o bien:");
+    text(0, 52, TR("o bien:", "or:"));
     oled.setFont(u8g2_font_helvB08_tf);
     text(0, 63, ip);
     oled.sendBuffer();
@@ -283,7 +284,7 @@ void screenProgress(const String &title, const String &line, int percent)
     screenMessage(title, line, String(percent) + " %");
 }
 
-void screenCelebrate(const String &value, const String &what) { screenMessage("¡ENHORABUENA!", value + " " + what); }
+void screenCelebrate(const String &value, const String &what) { screenMessage(TR("¡ENHORABUENA!", "CONGRATULATIONS!"), value + " " + what); }
 
 void screenAnimate() {}
 void screenGain(int64_t, int64_t) {}

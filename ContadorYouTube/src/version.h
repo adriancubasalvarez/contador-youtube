@@ -3,7 +3,7 @@
 
 // Versión del firmware: súbela en cada publicación (se ve en la página de ajustes)
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "1.5.0"
+#define FIRMWARE_VERSION "1.6.0"
 #endif
 
 // Placa para la que se compila. Va escrita dentro del firmware para que una
